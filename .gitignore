@@ -10,6 +10,8 @@ logs/
 *.out
 
 .env
+.env.*
+!.env.example
 
 backend/target/
 backend/.classpath
