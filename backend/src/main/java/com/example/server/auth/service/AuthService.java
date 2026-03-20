@@ -1,7 +1,11 @@
 package com.example.server.auth.service;
 
 import com.example.server.auth.dto.AuthResponse;
+import com.example.server.auth.dto.CurrentUserResponse;
 import com.example.server.auth.dto.LoginRequest;
+import com.example.server.auth.entity.User;
+import com.example.server.auth.repository.UserRepository;
+import com.example.server.common.exception.NotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -19,6 +23,7 @@ public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final UserRepository userRepository;
 
     public AuthResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
@@ -38,6 +43,20 @@ public class AuthService {
                 expiresAt,
                 user.getUsername(),
                 extractRole(user)
+        );
+    }
+
+    public CurrentUserResponse getCurrentUser(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+
+        return new CurrentUserResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getRole(),
+                user.isEnabled(),
+                user.isAccountNonLocked(),
+                user.getCreatedAt()
         );
     }
 
