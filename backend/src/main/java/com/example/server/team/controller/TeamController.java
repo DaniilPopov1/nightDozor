@@ -2,6 +2,7 @@ package com.example.server.team.controller;
 
 import com.example.server.team.dto.CreateTeamRequest;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
+import com.example.server.team.dto.TeamJoinRequestResponse;
 import com.example.server.team.dto.TeamResponse;
 import com.example.server.team.service.TeamService;
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +40,15 @@ public class TeamController {
             @Valid @RequestBody JoinTeamByCodeRequest request
     ) {
         return ResponseEntity.ok(teamService.joinTeamByCode(userDetails.getUsername(), request));
+    }
+
+    @PostMapping("/{teamId}/join-requests")
+    public ResponseEntity<TeamJoinRequestResponse> createJoinRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long teamId
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(teamService.createJoinRequest(userDetails.getUsername(), teamId));
     }
 
     @GetMapping("/me")
