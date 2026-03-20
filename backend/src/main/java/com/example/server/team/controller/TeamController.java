@@ -1,6 +1,7 @@
 package com.example.server.team.controller;
 
 import com.example.server.team.dto.CreateTeamRequest;
+import com.example.server.team.dto.JoinTeamByCodeRequest;
 import com.example.server.team.dto.TeamResponse;
 import com.example.server.team.service.TeamService;
 import jakarta.validation.Valid;
@@ -29,6 +30,14 @@ public class TeamController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(teamService.createTeam(userDetails.getUsername(), request));
+    }
+
+    @PostMapping("/join-by-code")
+    public ResponseEntity<TeamResponse> joinTeamByCode(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody JoinTeamByCodeRequest request
+    ) {
+        return ResponseEntity.ok(teamService.joinTeamByCode(userDetails.getUsername(), request));
     }
 
     @GetMapping("/me")

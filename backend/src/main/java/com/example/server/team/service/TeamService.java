@@ -7,6 +7,7 @@ import com.example.server.common.exception.BadRequestException;
 import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.team.dto.CreateTeamRequest;
+import com.example.server.team.dto.JoinTeamByCodeRequest;
 import com.example.server.team.dto.TeamMemberResponse;
 import com.example.server.team.dto.TeamResponse;
 import com.example.server.team.entity.Team;
@@ -22,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -59,6 +61,33 @@ public class TeamService {
         return buildTeamResponse(savedTeam);
     }
 
+    @Transactional
+    public TeamResponse joinTeamByCode(String email, JoinTeamByCodeRequest request) {
+        User user = getUserByEmail(email);
+        validateCanJoinTeam(user);
+
+        String inviteCode = normalizeInviteCode(request.inviteCode());
+        Team team = teamRepository.findByInviteCode(inviteCode)
+                .orElseThrow(() -> new NotFoundException("Команда с таким кодом приглашения не найдена"));
+
+        if (team.getCaptain().getId().equals(user.getId())) {
+            throw new ConflictException("Капитан уже состоит в этой команде");
+        }
+
+        TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserId(team.getId(), user.getId())
+                .orElseGet(TeamMembership::new);
+
+        membership.setTeam(team);
+        membership.setUser(user);
+        membership.setRole(TeamMembershipRole.MEMBER);
+        membership.setStatus(TeamMembershipStatus.ACTIVE);
+        membership.setJoinedAt(Instant.now());
+
+        teamMembershipRepository.save(membership);
+
+        return buildTeamResponse(team);
+    }
+
     @Transactional(readOnly = true)
     public TeamResponse getCurrentTeam(String email) {
         User user = getUserByEmail(email);
@@ -75,6 +104,16 @@ public class TeamService {
     private void validateCanCreateTeam(User user) {
         if (user.getRole() != Role.PARTICIPANT) {
             throw new BadRequestException("Создавать команды могут только участники");
+        }
+
+        if (teamMembershipRepository.existsByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)) {
+            throw new ConflictException("Пользователь уже состоит в команде");
+        }
+    }
+
+    private void validateCanJoinTeam(User user) {
+        if (user.getRole() != Role.PARTICIPANT) {
+            throw new BadRequestException("Вступать в команды могут только участники");
         }
 
         if (teamMembershipRepository.existsByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)) {
@@ -135,5 +174,9 @@ public class TeamService {
             builder.append(INVITE_CODE_ALPHABET.charAt(index));
         }
         return builder.toString();
+    }
+
+    private String normalizeInviteCode(String inviteCode) {
+        return inviteCode.trim().toUpperCase(Locale.ROOT);
     }
 }
