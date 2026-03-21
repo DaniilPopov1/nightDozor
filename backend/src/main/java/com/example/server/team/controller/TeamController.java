@@ -4,6 +4,7 @@ import com.example.server.team.dto.CreateTeamRequest;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
 import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
+import com.example.server.team.dto.TeamListItemResponse;
 import com.example.server.team.dto.TeamResponse;
 import com.example.server.common.response.ApiMessageResponse;
 import com.example.server.team.service.TeamService;
@@ -16,9 +17,12 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/teams")
@@ -75,6 +79,13 @@ public class TeamController {
     public ResponseEntity<ApiMessageResponse> leaveTeam(@AuthenticationPrincipal UserDetails userDetails) {
         teamService.leaveTeam(userDetails.getUsername());
         return ResponseEntity.ok(new ApiMessageResponse("Выход из команды выполнен"));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<TeamListItemResponse>> getTeams(
+            @RequestParam(required = false) String city
+    ) {
+        return ResponseEntity.ok(teamService.getTeams(city));
     }
 
     @GetMapping("/me")

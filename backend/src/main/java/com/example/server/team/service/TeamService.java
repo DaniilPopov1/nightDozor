@@ -11,6 +11,7 @@ import com.example.server.team.dto.JoinTeamByCodeRequest;
 import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamMemberResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
+import com.example.server.team.dto.TeamListItemResponse;
 import com.example.server.team.dto.TeamResponse;
 import com.example.server.team.entity.Team;
 import com.example.server.team.entity.TeamMembership;
@@ -167,6 +168,17 @@ public class TeamService {
         return buildTeamResponse(membership.getTeam());
     }
 
+    @Transactional(readOnly = true)
+    public List<TeamListItemResponse> getTeams(String city) {
+        List<Team> teams = city == null || city.isBlank()
+                ? teamRepository.findAllByOrderByCreatedAtDesc()
+                : teamRepository.findAllByCityIgnoreCaseOrderByCreatedAtDesc(city.trim());
+
+        return teams.stream()
+                .map(this::buildTeamListItemResponse)
+                .toList();
+    }
+
     @Transactional
     public void leaveTeam(String email) {
         User user = getUserByEmail(email);
@@ -302,6 +314,23 @@ public class TeamService {
                 membership.getStatus(),
                 membership.getJoinedAt(),
                 membership.getUpdatedAt()
+        );
+    }
+
+    private TeamListItemResponse buildTeamListItemResponse(Team team) {
+        int activeMembersCount = teamMembershipRepository.findAllByTeamIdAndStatus(
+                        team.getId(),
+                        TeamMembershipStatus.ACTIVE
+                ).size();
+
+        return new TeamListItemResponse(
+                team.getId(),
+                team.getName(),
+                team.getCity(),
+                team.getCaptain().getId(),
+                team.getCaptain().getEmail(),
+                activeMembersCount,
+                team.getCreatedAt()
         );
     }
 
