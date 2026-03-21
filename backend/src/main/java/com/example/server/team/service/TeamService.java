@@ -7,6 +7,7 @@ import com.example.server.common.exception.BadRequestException;
 import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.team.dto.CreateTeamRequest;
+import com.example.server.team.dto.IncomingJoinRequestResponse;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
 import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamMemberResponse;
@@ -179,6 +180,18 @@ public class TeamService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<IncomingJoinRequestResponse> getIncomingJoinRequests(String captainEmail) {
+        TeamMembership captainMembership = resolveCaptainMembership(captainEmail);
+
+        return teamMembershipRepository.findAllByTeamIdAndStatus(
+                        captainMembership.getTeam().getId(),
+                        TeamMembershipStatus.PENDING
+                ).stream()
+                .map(this::buildIncomingJoinRequestResponse)
+                .toList();
+    }
+
     @Transactional
     public void leaveTeam(String email) {
         User user = getUserByEmail(email);
@@ -242,6 +255,19 @@ public class TeamService {
         if (membership.getStatus() != TeamMembershipStatus.ACTIVE
                 || membership.getRole() != TeamMembershipRole.CAPTAIN) {
             throw new BadRequestException("Только капитан команды может обрабатывать заявки");
+        }
+
+        return membership;
+    }
+
+    private TeamMembership resolveCaptainMembership(String captainEmail) {
+        User captain = getUserByEmail(captainEmail);
+
+        TeamMembership membership = teamMembershipRepository.findByUserIdAndStatus(captain.getId(), TeamMembershipStatus.ACTIVE)
+                .orElseThrow(() -> new NotFoundException("У пользователя нет команды"));
+
+        if (membership.getRole() != TeamMembershipRole.CAPTAIN) {
+            throw new BadRequestException("Только капитан команды может просматривать входящие заявки");
         }
 
         return membership;
@@ -314,6 +340,16 @@ public class TeamService {
                 membership.getStatus(),
                 membership.getJoinedAt(),
                 membership.getUpdatedAt()
+        );
+    }
+
+    private IncomingJoinRequestResponse buildIncomingJoinRequestResponse(TeamMembership membership) {
+        return new IncomingJoinRequestResponse(
+                membership.getTeam().getId(),
+                membership.getUser().getId(),
+                membership.getUser().getEmail(),
+                membership.getStatus(),
+                membership.getCreatedAt()
         );
     }
 

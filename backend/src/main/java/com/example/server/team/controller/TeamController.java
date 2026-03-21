@@ -1,6 +1,7 @@
 package com.example.server.team.controller;
 
 import com.example.server.team.dto.CreateTeamRequest;
+import com.example.server.team.dto.IncomingJoinRequestResponse;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
 import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
@@ -86,6 +87,13 @@ public class TeamController {
             @RequestParam(required = false) String city
     ) {
         return ResponseEntity.ok(teamService.getTeams(city));
+    }
+
+    @GetMapping("/me/join-requests")
+    public ResponseEntity<List<IncomingJoinRequestResponse>> getIncomingJoinRequests(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(teamService.getIncomingJoinRequests(userDetails.getUsername()));
     }
 
     @GetMapping("/me")
