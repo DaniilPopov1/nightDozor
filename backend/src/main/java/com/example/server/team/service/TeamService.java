@@ -8,6 +8,7 @@ import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.team.dto.CreateTeamRequest;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
+import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamMemberResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
 import com.example.server.team.dto.TeamResponse;
@@ -125,6 +126,34 @@ public class TeamService {
         );
     }
 
+    @Transactional
+    public TeamJoinRequestDecisionResponse approveJoinRequest(String captainEmail, Long teamId, Long userId) {
+        resolveCaptainMembership(captainEmail, teamId);
+        TeamMembership membership = getPendingMembership(teamId, userId);
+
+        if (teamMembershipRepository.existsByUserIdAndStatus(userId, TeamMembershipStatus.ACTIVE)) {
+            throw new ConflictException("Пользователь уже состоит в команде");
+        }
+
+        membership.setStatus(TeamMembershipStatus.ACTIVE);
+        membership.setJoinedAt(Instant.now());
+
+        TeamMembership savedMembership = teamMembershipRepository.save(membership);
+        return buildJoinRequestDecisionResponse(savedMembership);
+    }
+
+    @Transactional
+    public TeamJoinRequestDecisionResponse rejectJoinRequest(String captainEmail, Long teamId, Long userId) {
+        resolveCaptainMembership(captainEmail, teamId);
+        TeamMembership membership = getPendingMembership(teamId, userId);
+
+        membership.setStatus(TeamMembershipStatus.REJECTED);
+        membership.setJoinedAt(null);
+
+        TeamMembership savedMembership = teamMembershipRepository.save(membership);
+        return buildJoinRequestDecisionResponse(savedMembership);
+    }
+
     @Transactional(readOnly = true)
     public TeamResponse getCurrentTeam(String email) {
         User user = getUserByEmail(email);
@@ -172,6 +201,31 @@ public class TeamService {
         }
     }
 
+    private TeamMembership resolveCaptainMembership(String captainEmail, Long teamId) {
+        User captain = getUserByEmail(captainEmail);
+
+        TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserId(teamId, captain.getId())
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (membership.getStatus() != TeamMembershipStatus.ACTIVE
+                || membership.getRole() != TeamMembershipRole.CAPTAIN) {
+            throw new BadRequestException("Только капитан команды может обрабатывать заявки");
+        }
+
+        return membership;
+    }
+
+    private TeamMembership getPendingMembership(Long teamId, Long userId) {
+        TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
+                .orElseThrow(() -> new NotFoundException("Заявка не найдена"));
+
+        if (membership.getStatus() != TeamMembershipStatus.PENDING) {
+            throw new BadRequestException("Можно обработать только заявку в статусе PENDING");
+        }
+
+        return membership;
+    }
+
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
@@ -204,6 +258,17 @@ public class TeamService {
                 membership.getRole(),
                 membership.getStatus(),
                 membership.getJoinedAt()
+        );
+    }
+
+    private TeamJoinRequestDecisionResponse buildJoinRequestDecisionResponse(TeamMembership membership) {
+        return new TeamJoinRequestDecisionResponse(
+                membership.getTeam().getId(),
+                membership.getUser().getId(),
+                membership.getUser().getEmail(),
+                membership.getStatus(),
+                membership.getJoinedAt(),
+                membership.getUpdatedAt()
         );
     }
 

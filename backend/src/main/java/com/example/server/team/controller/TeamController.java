@@ -2,6 +2,7 @@ package com.example.server.team.controller;
 
 import com.example.server.team.dto.CreateTeamRequest;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
+import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
 import com.example.server.team.dto.TeamResponse;
 import com.example.server.team.service.TeamService;
@@ -49,6 +50,24 @@ public class TeamController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(teamService.createJoinRequest(userDetails.getUsername(), teamId));
+    }
+
+    @PostMapping("/{teamId}/join-requests/{userId}/approve")
+    public ResponseEntity<TeamJoinRequestDecisionResponse> approveJoinRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long teamId,
+            @PathVariable Long userId
+    ) {
+        return ResponseEntity.ok(teamService.approveJoinRequest(userDetails.getUsername(), teamId, userId));
+    }
+
+    @PostMapping("/{teamId}/join-requests/{userId}/reject")
+    public ResponseEntity<TeamJoinRequestDecisionResponse> rejectJoinRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long teamId,
+            @PathVariable Long userId
+    ) {
+        return ResponseEntity.ok(teamService.rejectJoinRequest(userDetails.getUsername(), teamId, userId));
     }
 
     @GetMapping("/me")
