@@ -23,6 +23,7 @@ backend/src/main/resources/application-local.yml
 docker/postgres/data/
 
 target/
+.m2/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
