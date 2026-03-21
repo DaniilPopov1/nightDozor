@@ -167,14 +167,32 @@ public class TeamService {
         return buildTeamResponse(membership.getTeam());
     }
 
+    @Transactional
+    public void leaveTeam(String email) {
+        User user = getUserByEmail(email);
+        TeamMembership membership = teamMembershipRepository.findByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)
+                .orElseThrow(() -> new NotFoundException("У пользователя нет команды"));
+
+        if (membership.getRole() == TeamMembershipRole.CAPTAIN) {
+            validateCaptainCanLeave(membership.getTeam());
+            membership.setStatus(TeamMembershipStatus.LEFT);
+            membership.setJoinedAt(null);
+            teamMembershipRepository.save(membership);
+            teamRepository.delete(membership.getTeam());
+            return;
+        }
+
+        membership.setStatus(TeamMembershipStatus.LEFT);
+        membership.setJoinedAt(null);
+        teamMembershipRepository.save(membership);
+    }
+
     private void validateCanCreateTeam(User user) {
         if (user.getRole() != Role.PARTICIPANT) {
             throw new BadRequestException("Создавать команды могут только участники");
         }
 
-        if (teamMembershipRepository.existsByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)) {
-            throw new ConflictException("Пользователь уже состоит в команде");
-        }
+        validateNoBlockingMemberships(user);
     }
 
     private void validateCanJoinTeam(User user) {
@@ -182,9 +200,7 @@ public class TeamService {
             throw new BadRequestException("Вступать в команды могут только участники");
         }
 
-        if (teamMembershipRepository.existsByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)) {
-            throw new ConflictException("Пользователь уже состоит в команде");
-        }
+        validateNoBlockingMemberships(user);
     }
 
     private void validateCanRequestToJoinTeam(User user) {
@@ -192,6 +208,10 @@ public class TeamService {
             throw new BadRequestException("Отправлять заявки в команды могут только участники");
         }
 
+        validateNoBlockingMemberships(user);
+    }
+
+    private void validateNoBlockingMemberships(User user) {
         if (teamMembershipRepository.existsByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)) {
             throw new ConflictException("Пользователь уже состоит в команде");
         }
@@ -213,6 +233,19 @@ public class TeamService {
         }
 
         return membership;
+    }
+
+    private void validateCaptainCanLeave(Team team) {
+        long activeMembers = teamMembershipRepository.countByTeamIdAndStatus(team.getId(), TeamMembershipStatus.ACTIVE);
+        long pendingMembers = teamMembershipRepository.countByTeamIdAndStatus(team.getId(), TeamMembershipStatus.PENDING);
+
+        if (activeMembers > 1) {
+            throw new BadRequestException("Капитан не может выйти из команды, пока в ней есть другие активные участники");
+        }
+
+        if (pendingMembers > 0) {
+            throw new BadRequestException("Капитан не может выйти из команды, пока есть необработанные заявки");
+        }
     }
 
     private TeamMembership getPendingMembership(Long teamId, Long userId) {

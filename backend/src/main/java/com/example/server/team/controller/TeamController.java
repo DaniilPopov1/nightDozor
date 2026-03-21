@@ -5,6 +5,7 @@ import com.example.server.team.dto.JoinTeamByCodeRequest;
 import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
 import com.example.server.team.dto.TeamResponse;
+import com.example.server.common.response.ApiMessageResponse;
 import com.example.server.team.service.TeamService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -68,6 +69,12 @@ public class TeamController {
             @PathVariable Long userId
     ) {
         return ResponseEntity.ok(teamService.rejectJoinRequest(userDetails.getUsername(), teamId, userId));
+    }
+
+    @PostMapping("/leave")
+    public ResponseEntity<ApiMessageResponse> leaveTeam(@AuthenticationPrincipal UserDetails userDetails) {
+        teamService.leaveTeam(userDetails.getUsername());
+        return ResponseEntity.ok(new ApiMessageResponse("Выход из команды выполнен"));
     }
 
     @GetMapping("/me")
