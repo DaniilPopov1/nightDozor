@@ -9,6 +9,7 @@ import com.example.server.common.exception.NotFoundException;
 import com.example.server.team.dto.CreateTeamRequest;
 import com.example.server.team.dto.IncomingJoinRequestResponse;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
+import com.example.server.team.dto.OutgoingJoinRequestResponse;
 import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamMemberResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
@@ -192,6 +193,15 @@ public class TeamService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<OutgoingJoinRequestResponse> getOutgoingJoinRequests(String userEmail) {
+        User user = getUserByEmail(userEmail);
+
+        return teamMembershipRepository.findAllByUserIdAndStatus(user.getId(), TeamMembershipStatus.PENDING).stream()
+                .map(this::buildOutgoingJoinRequestResponse)
+                .toList();
+    }
+
     @Transactional
     public void leaveTeam(String email) {
         User user = getUserByEmail(email);
@@ -350,6 +360,17 @@ public class TeamService {
                 membership.getUser().getEmail(),
                 membership.getStatus(),
                 membership.getCreatedAt()
+        );
+    }
+
+    private OutgoingJoinRequestResponse buildOutgoingJoinRequestResponse(TeamMembership membership) {
+        return new OutgoingJoinRequestResponse(
+                membership.getTeam().getId(),
+                membership.getTeam().getName(),
+                membership.getTeam().getCity(),
+                membership.getStatus(),
+                membership.getCreatedAt(),
+                membership.getUpdatedAt()
         );
     }
 

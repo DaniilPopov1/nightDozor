@@ -3,6 +3,7 @@ package com.example.server.team.controller;
 import com.example.server.team.dto.CreateTeamRequest;
 import com.example.server.team.dto.IncomingJoinRequestResponse;
 import com.example.server.team.dto.JoinTeamByCodeRequest;
+import com.example.server.team.dto.OutgoingJoinRequestResponse;
 import com.example.server.team.dto.TeamJoinRequestDecisionResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
 import com.example.server.team.dto.TeamListItemResponse;
@@ -94,6 +95,13 @@ public class TeamController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return ResponseEntity.ok(teamService.getIncomingJoinRequests(userDetails.getUsername()));
+    }
+
+    @GetMapping("/me/outgoing-join-requests")
+    public ResponseEntity<List<OutgoingJoinRequestResponse>> getOutgoingJoinRequests(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(teamService.getOutgoingJoinRequests(userDetails.getUsername()));
     }
 
     @GetMapping("/me")
