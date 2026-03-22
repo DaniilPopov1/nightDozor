@@ -15,11 +15,20 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
 public class GameService {
+
+    private static final Set<GameStatus> PUBLIC_GAME_STATUSES = EnumSet.of(
+            GameStatus.REGISTRATION_OPEN,
+            GameStatus.REGISTRATION_CLOSED,
+            GameStatus.IN_PROGRESS,
+            GameStatus.FINISHED
+    );
 
     private final GameRepository gameRepository;
     private final UserRepository userRepository;
@@ -51,6 +60,17 @@ public class GameService {
         User organizer = getOrganizerByEmail(organizerEmail);
 
         return gameRepository.findAllByOrganizerIdOrderByCreatedAtDesc(organizer.getId()).stream()
+                .map(this::buildGameListItemResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<GameListItemResponse> getPublicGames(String city) {
+        List<Game> games = city == null || city.isBlank()
+                ? gameRepository.findAllByStatusInOrderByCreatedAtDesc(PUBLIC_GAME_STATUSES)
+                : gameRepository.findAllByCityIgnoreCaseAndStatusInOrderByCreatedAtDesc(city.trim(), PUBLIC_GAME_STATUSES);
+
+        return games.stream()
                 .map(this::buildGameListItemResponse)
                 .toList();
     }
