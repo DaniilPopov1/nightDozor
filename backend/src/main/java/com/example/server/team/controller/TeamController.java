@@ -96,6 +96,15 @@ public class TeamController {
         return ResponseEntity.ok(new ApiMessageResponse("Участник исключен из команды"));
     }
 
+    @PostMapping("/{teamId}/captain/{userId}/transfer")
+    public ResponseEntity<TeamResponse> transferCaptainRole(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long teamId,
+            @PathVariable Long userId
+    ) {
+        return ResponseEntity.ok(teamService.transferCaptainRole(userDetails.getUsername(), teamId, userId));
+    }
+
     @PostMapping("/leave")
     public ResponseEntity<ApiMessageResponse> leaveTeam(@AuthenticationPrincipal UserDetails userDetails) {
         teamService.leaveTeam(userDetails.getUsername());

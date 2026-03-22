@@ -197,6 +197,34 @@ public class TeamService {
         teamMembershipRepository.save(membership);
     }
 
+    @Transactional
+    public TeamResponse transferCaptainRole(String currentCaptainEmail, Long teamId, Long newCaptainUserId) {
+        TeamMembership currentCaptainMembership = resolveCaptainMembership(currentCaptainEmail, teamId);
+
+        if (currentCaptainMembership.getUser().getId().equals(newCaptainUserId)) {
+            throw new BadRequestException("Новый капитан должен отличаться от текущего");
+        }
+
+        TeamMembership newCaptainMembership = teamMembershipRepository.findByTeamIdAndUserId(teamId, newCaptainUserId)
+                .orElseThrow(() -> new NotFoundException("Участник команды не найден"));
+
+        if (newCaptainMembership.getStatus() != TeamMembershipStatus.ACTIVE) {
+            throw new BadRequestException("Капитаном можно назначить только активного участника команды");
+        }
+
+        currentCaptainMembership.setRole(TeamMembershipRole.MEMBER);
+        newCaptainMembership.setRole(TeamMembershipRole.CAPTAIN);
+
+        Team team = currentCaptainMembership.getTeam();
+        team.setCaptain(newCaptainMembership.getUser());
+
+        teamMembershipRepository.save(currentCaptainMembership);
+        teamMembershipRepository.save(newCaptainMembership);
+        teamRepository.save(team);
+
+        return buildTeamResponse(team);
+    }
+
     @Transactional(readOnly = true)
     public TeamResponse getCurrentTeam(String email) {
         User user = getUserByEmail(email);
