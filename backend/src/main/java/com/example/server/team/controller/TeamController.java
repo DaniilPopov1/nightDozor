@@ -59,6 +59,15 @@ public class TeamController {
                 .body(teamService.createJoinRequest(userDetails.getUsername(), teamId));
     }
 
+    @PostMapping("/{teamId}/join-requests/cancel")
+    public ResponseEntity<ApiMessageResponse> cancelJoinRequest(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long teamId
+    ) {
+        teamService.cancelJoinRequest(userDetails.getUsername(), teamId);
+        return ResponseEntity.ok(new ApiMessageResponse("Заявка на вступление отменена"));
+    }
+
     @PostMapping("/{teamId}/join-requests/{userId}/approve")
     public ResponseEntity<TeamJoinRequestDecisionResponse> approveJoinRequest(
             @AuthenticationPrincipal UserDetails userDetails,

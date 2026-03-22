@@ -130,6 +130,22 @@ public class TeamService {
     }
 
     @Transactional
+    public void cancelJoinRequest(String email, Long teamId) {
+        User user = getUserByEmail(email);
+
+        TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserId(teamId, user.getId())
+                .orElseThrow(() -> new NotFoundException("Заявка не найдена"));
+
+        if (membership.getStatus() != TeamMembershipStatus.PENDING) {
+            throw new BadRequestException("Можно отменить только заявку в статусе PENDING");
+        }
+
+        membership.setStatus(TeamMembershipStatus.LEFT);
+        membership.setJoinedAt(null);
+        teamMembershipRepository.save(membership);
+    }
+
+    @Transactional
     public TeamJoinRequestDecisionResponse approveJoinRequest(String captainEmail, Long teamId, Long userId) {
         resolveCaptainMembership(captainEmail, teamId);
         TeamMembership membership = getPendingMembership(teamId, userId);
