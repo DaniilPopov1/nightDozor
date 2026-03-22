@@ -1,8 +1,11 @@
 package com.example.server.game.controller;
 
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.UpdateGameRequest;
+import com.example.server.game.dto.UpdateGameStatusRequest;
 import com.example.server.game.service.GameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +15,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,6 +40,15 @@ public class GameController {
                 .body(gameService.createGame(userDetails.getUsername(), request));
     }
 
+    @PostMapping("/{gameId}/registrations")
+    public ResponseEntity<GameRegistrationResponse> submitGameRegistration(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(gameService.submitGameRegistration(userDetails.getUsername(), gameId));
+    }
+
     @GetMapping
     public ResponseEntity<List<GameListItemResponse>> getPublicGames(
             @RequestParam(required = false) String city
@@ -56,5 +69,23 @@ public class GameController {
             @PathVariable Long gameId
     ) {
         return ResponseEntity.ok(gameService.getOrganizerGameById(userDetails.getUsername(), gameId));
+    }
+
+    @PutMapping("/my/{gameId}")
+    public ResponseEntity<GameResponse> updateMyGame(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @Valid @RequestBody UpdateGameRequest request
+    ) {
+        return ResponseEntity.ok(gameService.updateGame(userDetails.getUsername(), gameId, request));
+    }
+
+    @PostMapping("/my/{gameId}/status")
+    public ResponseEntity<GameResponse> updateMyGameStatus(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @Valid @RequestBody UpdateGameStatusRequest request
+    ) {
+        return ResponseEntity.ok(gameService.updateGameStatus(userDetails.getUsername(), gameId, request));
     }
 }

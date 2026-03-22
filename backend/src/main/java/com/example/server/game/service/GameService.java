@@ -4,17 +4,30 @@ import com.example.server.auth.entity.Role;
 import com.example.server.auth.entity.User;
 import com.example.server.auth.repository.UserRepository;
 import com.example.server.common.exception.BadRequestException;
+import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.UpdateGameRequest;
+import com.example.server.game.dto.UpdateGameStatusRequest;
 import com.example.server.game.entity.Game;
+import com.example.server.game.entity.GameRegistration;
+import com.example.server.game.entity.GameRegistrationStatus;
 import com.example.server.game.entity.GameStatus;
+import com.example.server.game.repository.GameRegistrationRepository;
 import com.example.server.game.repository.GameRepository;
+import com.example.server.team.entity.Team;
+import com.example.server.team.entity.TeamMembership;
+import com.example.server.team.entity.TeamMembershipRole;
+import com.example.server.team.entity.TeamMembershipStatus;
+import com.example.server.team.repository.TeamMembershipRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -31,6 +44,8 @@ public class GameService {
     );
 
     private final GameRepository gameRepository;
+    private final GameRegistrationRepository gameRegistrationRepository;
+    private final TeamMembershipRepository teamMembershipRepository;
     private final UserRepository userRepository;
 
     @Transactional
@@ -55,6 +70,74 @@ public class GameService {
         return buildGameResponse(savedGame);
     }
 
+    @Transactional
+    public GameResponse updateGame(String organizerEmail, Long gameId, UpdateGameRequest request) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+        validateGameRequest(
+                request.minTeamSize(),
+                request.maxTeamSize(),
+                request.registrationStartsAt(),
+                request.registrationEndsAt(),
+                request.startsAt()
+        );
+
+        game.setTitle(request.title().trim());
+        game.setDescription(request.description().trim());
+        game.setCity(request.city().trim());
+        game.setMinTeamSize(request.minTeamSize());
+        game.setMaxTeamSize(request.maxTeamSize());
+        game.setTaskFailurePenaltyMinutes(request.taskFailurePenaltyMinutes());
+        game.setRegistrationStartsAt(request.registrationStartsAt());
+        game.setRegistrationEndsAt(request.registrationEndsAt());
+        game.setStartsAt(request.startsAt());
+
+        Game savedGame = gameRepository.save(game);
+        return buildGameResponse(savedGame);
+    }
+
+    @Transactional
+    public GameResponse updateGameStatus(String organizerEmail, Long gameId, UpdateGameStatusRequest request) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        applyStatusTransition(game, request.status());
+
+        Game savedGame = gameRepository.save(game);
+        return buildGameResponse(savedGame);
+    }
+
+    @Transactional
+    public GameRegistrationResponse submitGameRegistration(String captainEmail, Long gameId) {
+        Team team = getCaptainTeam(captainEmail);
+        Game game = gameRepository.findById(gameId)
+                .orElseThrow(() -> new NotFoundException("Игра не найдена"));
+
+        if (game.getStatus() != GameStatus.REGISTRATION_OPEN) {
+            throw new BadRequestException("Подать заявку можно только в игру с открытой регистрацией");
+        }
+
+        long activeMembersCount = teamMembershipRepository.countByTeamIdAndStatus(team.getId(), TeamMembershipStatus.ACTIVE);
+        if (activeMembersCount < game.getMinTeamSize() || activeMembersCount > game.getMaxTeamSize()) {
+            throw new BadRequestException("Размер команды не соответствует требованиям игры");
+        }
+
+        GameRegistration registration = gameRegistrationRepository.findByGameIdAndTeamId(gameId, team.getId())
+                .orElseGet(GameRegistration::new);
+
+        if (registration.getId() != null) {
+            if (registration.getStatus() == GameRegistrationStatus.PENDING
+                    || registration.getStatus() == GameRegistrationStatus.APPROVED) {
+                throw new ConflictException("Заявка этой команды на игру уже существует");
+            }
+        }
+
+        registration.setGame(game);
+        registration.setTeam(team);
+        registration.setStatus(GameRegistrationStatus.PENDING);
+
+        GameRegistration savedRegistration = gameRegistrationRepository.save(registration);
+        return buildGameRegistrationResponse(savedRegistration);
+    }
+
     @Transactional(readOnly = true)
     public List<GameListItemResponse> getOrganizerGames(String organizerEmail) {
         User organizer = getOrganizerByEmail(organizerEmail);
@@ -77,27 +160,17 @@ public class GameService {
 
     @Transactional(readOnly = true)
     public GameResponse getOrganizerGameById(String organizerEmail, Long gameId) {
-        User organizer = getOrganizerByEmail(organizerEmail);
-
-        Game game = gameRepository.findByIdAndOrganizerId(gameId, organizer.getId())
-                .orElseThrow(() -> new NotFoundException("Игра не найдена"));
-
-        return buildGameResponse(game);
+        return buildGameResponse(getOrganizerGame(organizerEmail, gameId));
     }
 
     private void validateCreateGameRequest(CreateGameRequest request) {
-        if (request.minTeamSize() > request.maxTeamSize()) {
-            throw new BadRequestException("Минимальный размер команды не может быть больше максимального");
-        }
-
-        if (request.registrationStartsAt() != null && request.registrationEndsAt() != null
-                && request.registrationStartsAt().isAfter(request.registrationEndsAt())) {
-            throw new BadRequestException("Дата начала регистрации не может быть позже даты окончания регистрации");
-        }
-
-        if (request.registrationEndsAt() != null && request.registrationEndsAt().isAfter(request.startsAt())) {
-            throw new BadRequestException("Дата окончания регистрации не может быть позже даты начала игры");
-        }
+        validateGameRequest(
+                request.minTeamSize(),
+                request.maxTeamSize(),
+                request.registrationStartsAt(),
+                request.registrationEndsAt(),
+                request.startsAt()
+        );
     }
 
     private User getOrganizerByEmail(String email) {
@@ -109,6 +182,89 @@ public class GameService {
         }
 
         return user;
+    }
+
+    private Game getOrganizerGame(String organizerEmail, Long gameId) {
+        User organizer = getOrganizerByEmail(organizerEmail);
+
+        return gameRepository.findByIdAndOrganizerId(gameId, organizer.getId())
+                .orElseThrow(() -> new NotFoundException("Игра не найдена"));
+    }
+
+    private Team getCaptainTeam(String captainEmail) {
+        User captain = userRepository.findByEmail(captainEmail)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+
+        TeamMembership membership = teamMembershipRepository.findByUserIdAndStatus(captain.getId(), TeamMembershipStatus.ACTIVE)
+                .orElseThrow(() -> new NotFoundException("У пользователя нет команды"));
+
+        if (membership.getRole() != TeamMembershipRole.CAPTAIN) {
+            throw new BadRequestException("Подавать заявку на игру может только капитан команды");
+        }
+
+        return membership.getTeam();
+    }
+
+    private void validateGameEditable(Game game) {
+        if (game.getStatus() == GameStatus.IN_PROGRESS
+                || game.getStatus() == GameStatus.FINISHED
+                || game.getStatus() == GameStatus.CANCELED) {
+            throw new BadRequestException("Редактировать игру можно только до её старта и завершения");
+        }
+
+        if (game.getStartsAt() != null && !game.getStartsAt().isAfter(Instant.now())) {
+            throw new BadRequestException("Редактировать игру можно только до её старта");
+        }
+    }
+
+    private void validateGameRequest(
+            Integer minTeamSize,
+            Integer maxTeamSize,
+            Instant registrationStartsAt,
+            Instant registrationEndsAt,
+            Instant startsAt
+    ) {
+        if (minTeamSize > maxTeamSize) {
+            throw new BadRequestException("Минимальный размер команды не может быть больше максимального");
+        }
+
+        if (registrationStartsAt != null && registrationEndsAt != null && registrationStartsAt.isAfter(registrationEndsAt)) {
+            throw new BadRequestException("Дата начала регистрации не может быть позже даты окончания регистрации");
+        }
+
+        if (registrationEndsAt != null && registrationEndsAt.isAfter(startsAt)) {
+            throw new BadRequestException("Дата окончания регистрации не может быть позже даты начала игры");
+        }
+    }
+
+    private void applyStatusTransition(Game game, GameStatus targetStatus) {
+        GameStatus currentStatus = game.getStatus();
+
+        if (currentStatus == targetStatus) {
+            return;
+        }
+
+        boolean allowed = switch (currentStatus) {
+            case DRAFT -> targetStatus == GameStatus.REGISTRATION_OPEN || targetStatus == GameStatus.CANCELED;
+            case REGISTRATION_OPEN -> targetStatus == GameStatus.REGISTRATION_CLOSED || targetStatus == GameStatus.CANCELED;
+            case REGISTRATION_CLOSED -> targetStatus == GameStatus.IN_PROGRESS || targetStatus == GameStatus.CANCELED;
+            case IN_PROGRESS -> targetStatus == GameStatus.FINISHED;
+            case FINISHED, CANCELED -> false;
+        };
+
+        if (!allowed) {
+            throw new BadRequestException("Недопустимый переход статуса игры");
+        }
+
+        game.setStatus(targetStatus);
+
+        if (targetStatus == GameStatus.FINISHED) {
+            game.setFinishedAt(Instant.now());
+        }
+
+        if (targetStatus != GameStatus.FINISHED) {
+            game.setFinishedAt(null);
+        }
     }
 
     private GameListItemResponse buildGameListItemResponse(Game game) {
@@ -144,6 +300,19 @@ public class GameService {
                 game.getOrganizer().getEmail(),
                 game.getCreatedAt(),
                 game.getUpdatedAt()
+        );
+    }
+
+    private GameRegistrationResponse buildGameRegistrationResponse(GameRegistration registration) {
+        return new GameRegistrationResponse(
+                registration.getId(),
+                registration.getGame().getId(),
+                registration.getGame().getTitle(),
+                registration.getTeam().getId(),
+                registration.getTeam().getName(),
+                registration.getStatus(),
+                registration.getCreatedAt(),
+                registration.getUpdatedAt()
         );
     }
 }

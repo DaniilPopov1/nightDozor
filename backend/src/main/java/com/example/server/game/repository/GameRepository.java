@@ -15,4 +15,5 @@ public interface GameRepository extends JpaRepository<Game, Long> {
     List<Game> findAllByStatusInOrderByCreatedAtDesc(Set<GameStatus> statuses);
     List<Game> findAllByCityIgnoreCaseAndStatusInOrderByCreatedAtDesc(String city, Set<GameStatus> statuses);
     Optional<Game> findByIdAndOrganizerId(Long id, Long organizerId);
+    Optional<Game> findByIdAndStatus(Long id, GameStatus status);
 }
