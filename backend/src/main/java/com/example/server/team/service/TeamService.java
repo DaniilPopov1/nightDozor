@@ -173,6 +173,30 @@ public class TeamService {
         return buildJoinRequestDecisionResponse(savedMembership);
     }
 
+    @Transactional
+    public void removeMember(String captainEmail, Long teamId, Long userId) {
+        TeamMembership captainMembership = resolveCaptainMembership(captainEmail, teamId);
+
+        if (captainMembership.getUser().getId().equals(userId)) {
+            throw new BadRequestException("Капитан не может исключить сам себя");
+        }
+
+        TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
+                .orElseThrow(() -> new NotFoundException("Участник команды не найден"));
+
+        if (membership.getStatus() != TeamMembershipStatus.ACTIVE) {
+            throw new BadRequestException("Можно исключить только активного участника команды");
+        }
+
+        if (membership.getRole() == TeamMembershipRole.CAPTAIN) {
+            throw new BadRequestException("Нельзя исключить капитана команды");
+        }
+
+        membership.setStatus(TeamMembershipStatus.LEFT);
+        membership.setJoinedAt(null);
+        teamMembershipRepository.save(membership);
+    }
+
     @Transactional(readOnly = true)
     public TeamResponse getCurrentTeam(String email) {
         User user = getUserByEmail(email);

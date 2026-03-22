@@ -86,6 +86,16 @@ public class TeamController {
         return ResponseEntity.ok(teamService.rejectJoinRequest(userDetails.getUsername(), teamId, userId));
     }
 
+    @PostMapping("/{teamId}/members/{userId}/remove")
+    public ResponseEntity<ApiMessageResponse> removeMember(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long teamId,
+            @PathVariable Long userId
+    ) {
+        teamService.removeMember(userDetails.getUsername(), teamId, userId);
+        return ResponseEntity.ok(new ApiMessageResponse("Участник исключен из команды"));
+    }
+
     @PostMapping("/leave")
     public ResponseEntity<ApiMessageResponse> leaveTeam(@AuthenticationPrincipal UserDetails userDetails) {
         teamService.leaveTeam(userDetails.getUsername());
