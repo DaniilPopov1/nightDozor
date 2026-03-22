@@ -15,6 +15,7 @@ import com.example.server.team.dto.TeamMemberResponse;
 import com.example.server.team.dto.TeamJoinRequestResponse;
 import com.example.server.team.dto.TeamListItemResponse;
 import com.example.server.team.dto.TeamResponse;
+import com.example.server.team.dto.UpdateTeamRequest;
 import com.example.server.team.entity.Team;
 import com.example.server.team.entity.TeamMembership;
 import com.example.server.team.entity.TeamMembershipRole;
@@ -223,6 +224,22 @@ public class TeamService {
         teamRepository.save(team);
 
         return buildTeamResponse(team);
+    }
+
+    @Transactional
+    public TeamResponse updateTeam(String captainEmail, Long teamId, UpdateTeamRequest request) {
+        TeamMembership captainMembership = resolveCaptainMembership(captainEmail, teamId);
+        Team team = captainMembership.getTeam();
+
+        team.setName(request.name().trim());
+        team.setCity(request.city().trim());
+
+        if (request.regenerateInviteCode()) {
+            team.setInviteCode(generateUniqueInviteCode());
+        }
+
+        Team savedTeam = teamRepository.save(team);
+        return buildTeamResponse(savedTeam);
     }
 
     @Transactional(readOnly = true)
