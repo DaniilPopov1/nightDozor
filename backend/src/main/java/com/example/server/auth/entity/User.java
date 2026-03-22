@@ -1,5 +1,6 @@
 package com.example.server.auth.entity;
 
+import com.example.server.game.entity.Game;
 import com.example.server.team.entity.Team;
 import com.example.server.team.entity.TeamMembership;
 import jakarta.persistence.*;
@@ -46,4 +47,7 @@ public class User {
 
     @OneToMany(mappedBy = "user")
     private Set<TeamMembership> teamMemberships = new HashSet<>();
+
+    @OneToMany(mappedBy = "organizer")
+    private Set<Game> organizedGames = new HashSet<>();
 }
