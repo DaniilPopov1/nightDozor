@@ -242,6 +242,16 @@ public class TeamService {
         return buildTeamResponse(savedTeam);
     }
 
+    @Transactional
+    public void disbandTeam(String captainEmail, Long teamId) {
+        TeamMembership captainMembership = resolveCaptainMembership(captainEmail, teamId);
+        Team team = captainMembership.getTeam();
+
+        List<TeamMembership> memberships = teamMembershipRepository.findAllByTeamId(team.getId());
+        teamMembershipRepository.deleteAll(memberships);
+        teamRepository.delete(team);
+    }
+
     @Transactional(readOnly = true)
     public TeamResponse getCurrentTeam(String email) {
         User user = getUserByEmail(email);
@@ -302,12 +312,7 @@ public class TeamService {
                 .orElseThrow(() -> new NotFoundException("У пользователя нет команды"));
 
         if (membership.getRole() == TeamMembershipRole.CAPTAIN) {
-            validateCaptainCanLeave(membership.getTeam());
-            membership.setStatus(TeamMembershipStatus.LEFT);
-            membership.setJoinedAt(null);
-            teamMembershipRepository.save(membership);
-            teamRepository.delete(membership.getTeam());
-            return;
+            throw new BadRequestException("Капитан не может выйти из команды без передачи роли капитана или расформирования команды");
         }
 
         membership.setStatus(TeamMembershipStatus.LEFT);
@@ -374,19 +379,6 @@ public class TeamService {
         }
 
         return membership;
-    }
-
-    private void validateCaptainCanLeave(Team team) {
-        long activeMembers = teamMembershipRepository.countByTeamIdAndStatus(team.getId(), TeamMembershipStatus.ACTIVE);
-        long pendingMembers = teamMembershipRepository.countByTeamIdAndStatus(team.getId(), TeamMembershipStatus.PENDING);
-
-        if (activeMembers > 1) {
-            throw new BadRequestException("Капитан не может выйти из команды, пока в ней есть другие активные участники");
-        }
-
-        if (pendingMembers > 0) {
-            throw new BadRequestException("Капитан не может выйти из команды, пока есть необработанные заявки");
-        }
     }
 
     private TeamMembership getPendingMembership(Long teamId, Long userId) {

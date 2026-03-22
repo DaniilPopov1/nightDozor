@@ -116,6 +116,15 @@ public class TeamController {
         return ResponseEntity.ok(teamService.updateTeam(userDetails.getUsername(), teamId, request));
     }
 
+    @PostMapping("/{teamId}/disband")
+    public ResponseEntity<ApiMessageResponse> disbandTeam(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long teamId
+    ) {
+        teamService.disbandTeam(userDetails.getUsername(), teamId);
+        return ResponseEntity.ok(new ApiMessageResponse("Команда расформирована"));
+    }
+
     @PostMapping("/leave")
     public ResponseEntity<ApiMessageResponse> leaveTeam(@AuthenticationPrincipal UserDetails userDetails) {
         teamService.leaveTeam(userDetails.getUsername());
