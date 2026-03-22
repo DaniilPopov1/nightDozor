@@ -90,6 +90,11 @@ public class TeamController {
         return ResponseEntity.ok(teamService.getTeams(city));
     }
 
+    @GetMapping("/{teamId}")
+    public ResponseEntity<TeamResponse> getTeamById(@PathVariable Long teamId) {
+        return ResponseEntity.ok(teamService.getTeamById(teamId));
+    }
+
     @GetMapping("/me/join-requests")
     public ResponseEntity<List<IncomingJoinRequestResponse>> getIncomingJoinRequests(
             @AuthenticationPrincipal UserDetails userDetails

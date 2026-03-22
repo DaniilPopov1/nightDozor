@@ -182,6 +182,14 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
+    public TeamResponse getTeamById(Long teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        return buildTeamResponse(team);
+    }
+
+    @Transactional(readOnly = true)
     public List<IncomingJoinRequestResponse> getIncomingJoinRequests(String captainEmail) {
         TeamMembership captainMembership = resolveCaptainMembership(captainEmail);
 
