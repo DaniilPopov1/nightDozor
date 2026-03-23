@@ -11,6 +11,7 @@ import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameStatusRequest;
 import com.example.server.game.entity.Game;
@@ -173,6 +174,15 @@ public class GameService {
                         GameRegistrationStatus.PENDING
                 ).stream()
                 .map(this::buildIncomingGameRegistrationResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeamGameRegistrationResponse> getTeamRegistrations(String captainEmail) {
+        Team team = getCaptainTeam(captainEmail);
+
+        return gameRegistrationRepository.findAllByTeamIdOrderByCreatedAtDesc(team.getId()).stream()
+                .map(this::buildTeamGameRegistrationResponse)
                 .toList();
     }
 
@@ -344,6 +354,22 @@ public class GameService {
                 registration.getTeam().getCaptain().getId(),
                 registration.getTeam().getCaptain().getEmail(),
                 Math.toIntExact(activeMembersCount),
+                registration.getStatus(),
+                registration.getCreatedAt(),
+                registration.getUpdatedAt()
+        );
+    }
+
+    private TeamGameRegistrationResponse buildTeamGameRegistrationResponse(GameRegistration registration) {
+        return new TeamGameRegistrationResponse(
+                registration.getId(),
+                registration.getGame().getId(),
+                registration.getGame().getTitle(),
+                registration.getGame().getCity(),
+                registration.getGame().getStatus(),
+                registration.getGame().getMinTeamSize(),
+                registration.getGame().getMaxTeamSize(),
+                registration.getGame().getStartsAt(),
                 registration.getStatus(),
                 registration.getCreatedAt(),
                 registration.getUpdatedAt()

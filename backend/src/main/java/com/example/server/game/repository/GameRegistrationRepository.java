@@ -10,4 +10,5 @@ import java.util.Optional;
 public interface GameRegistrationRepository extends JpaRepository<GameRegistration, Long> {
     Optional<GameRegistration> findByGameIdAndTeamId(Long gameId, Long teamId);
     List<GameRegistration> findAllByGameIdAndStatusOrderByCreatedAtDesc(Long gameId, GameRegistrationStatus status);
+    List<GameRegistration> findAllByTeamIdOrderByCreatedAtDesc(Long teamId);
 }

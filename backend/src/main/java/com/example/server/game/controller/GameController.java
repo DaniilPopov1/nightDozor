@@ -5,6 +5,7 @@ import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameStatusRequest;
 import com.example.server.game.service.GameService;
@@ -96,5 +97,12 @@ public class GameController {
             @PathVariable Long gameId
     ) {
         return ResponseEntity.ok(gameService.getIncomingRegistrations(userDetails.getUsername(), gameId));
+    }
+
+    @GetMapping("/registrations/my-team")
+    public ResponseEntity<List<TeamGameRegistrationResponse>> getMyTeamRegistrations(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(gameService.getTeamRegistrations(userDetails.getUsername()));
     }
 }
