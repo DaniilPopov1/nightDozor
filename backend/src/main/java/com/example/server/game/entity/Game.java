@@ -90,6 +90,9 @@ public class Game {
     @OneToMany(mappedBy = "game", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<GameRegistration> registrations = new HashSet<>();
 
+    @OneToMany(mappedBy = "game", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private Set<GameTask> tasks = new HashSet<>();
+
     @PreUpdate
     void onUpdate() {
         updatedAt = Instant.now();
