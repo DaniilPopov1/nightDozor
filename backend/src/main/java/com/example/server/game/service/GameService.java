@@ -140,6 +140,41 @@ public class GameService {
         return buildGameRegistrationResponse(savedRegistration);
     }
 
+    @Transactional
+    public GameRegistrationResponse cancelGameRegistration(String captainEmail, Long gameId) {
+        Team team = getCaptainTeam(captainEmail);
+        GameRegistration registration = gameRegistrationRepository.findByGameIdAndTeamId(gameId, team.getId())
+                .orElseThrow(() -> new NotFoundException("Заявка команды на игру не найдена"));
+
+        if (registration.getStatus() != GameRegistrationStatus.PENDING) {
+            throw new BadRequestException("Отменить можно только заявку в статусе PENDING");
+        }
+
+        registration.setStatus(GameRegistrationStatus.CANCELED);
+        GameRegistration savedRegistration = gameRegistrationRepository.save(registration);
+        return buildGameRegistrationResponse(savedRegistration);
+    }
+
+    @Transactional
+    public GameRegistrationResponse approveRegistration(String organizerEmail, Long gameId, Long registrationId) {
+        getOrganizerGame(organizerEmail, gameId);
+        GameRegistration registration = getPendingRegistration(gameId, registrationId);
+
+        registration.setStatus(GameRegistrationStatus.APPROVED);
+        GameRegistration savedRegistration = gameRegistrationRepository.save(registration);
+        return buildGameRegistrationResponse(savedRegistration);
+    }
+
+    @Transactional
+    public GameRegistrationResponse rejectRegistration(String organizerEmail, Long gameId, Long registrationId) {
+        getOrganizerGame(organizerEmail, gameId);
+        GameRegistration registration = getPendingRegistration(gameId, registrationId);
+
+        registration.setStatus(GameRegistrationStatus.REJECTED);
+        GameRegistration savedRegistration = gameRegistrationRepository.save(registration);
+        return buildGameRegistrationResponse(savedRegistration);
+    }
+
     @Transactional(readOnly = true)
     public List<GameListItemResponse> getOrganizerGames(String organizerEmail) {
         User organizer = getOrganizerByEmail(organizerEmail);
@@ -226,6 +261,17 @@ public class GameService {
         }
 
         return membership.getTeam();
+    }
+
+    private GameRegistration getPendingRegistration(Long gameId, Long registrationId) {
+        GameRegistration registration = gameRegistrationRepository.findByIdAndGameId(registrationId, gameId)
+                .orElseThrow(() -> new NotFoundException("Заявка на игру не найдена"));
+
+        if (registration.getStatus() != GameRegistrationStatus.PENDING) {
+            throw new BadRequestException("Можно обработать только заявку в статусе PENDING");
+        }
+
+        return registration;
     }
 
     private void validateGameEditable(Game game) {

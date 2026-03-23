@@ -51,6 +51,14 @@ public class GameController {
                 .body(gameService.submitGameRegistration(userDetails.getUsername(), gameId));
     }
 
+    @PostMapping("/{gameId}/registrations/cancel")
+    public ResponseEntity<GameRegistrationResponse> cancelGameRegistration(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.cancelGameRegistration(userDetails.getUsername(), gameId));
+    }
+
     @GetMapping
     public ResponseEntity<List<GameListItemResponse>> getPublicGames(
             @RequestParam(required = false) String city
@@ -97,6 +105,24 @@ public class GameController {
             @PathVariable Long gameId
     ) {
         return ResponseEntity.ok(gameService.getIncomingRegistrations(userDetails.getUsername(), gameId));
+    }
+
+    @PostMapping("/my/{gameId}/registrations/{registrationId}/approve")
+    public ResponseEntity<GameRegistrationResponse> approveRegistration(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long registrationId
+    ) {
+        return ResponseEntity.ok(gameService.approveRegistration(userDetails.getUsername(), gameId, registrationId));
+    }
+
+    @PostMapping("/my/{gameId}/registrations/{registrationId}/reject")
+    public ResponseEntity<GameRegistrationResponse> rejectRegistration(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long registrationId
+    ) {
+        return ResponseEntity.ok(gameService.rejectRegistration(userDetails.getUsername(), gameId, registrationId));
     }
 
     @GetMapping("/registrations/my-team")
