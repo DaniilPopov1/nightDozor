@@ -8,6 +8,7 @@ import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.game.dto.CreateGameRequest;
 import com.example.server.game.dto.GameRegistrationResponse;
+import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
 import com.example.server.game.dto.UpdateGameRequest;
@@ -163,6 +164,18 @@ public class GameService {
         return buildGameResponse(getOrganizerGame(organizerEmail, gameId));
     }
 
+    @Transactional(readOnly = true)
+    public List<IncomingGameRegistrationResponse> getIncomingRegistrations(String organizerEmail, Long gameId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+
+        return gameRegistrationRepository.findAllByGameIdAndStatusOrderByCreatedAtDesc(
+                        game.getId(),
+                        GameRegistrationStatus.PENDING
+                ).stream()
+                .map(this::buildIncomingGameRegistrationResponse)
+                .toList();
+    }
+
     private void validateCreateGameRequest(CreateGameRequest request) {
         validateGameRequest(
                 request.minTeamSize(),
@@ -310,6 +323,27 @@ public class GameService {
                 registration.getGame().getTitle(),
                 registration.getTeam().getId(),
                 registration.getTeam().getName(),
+                registration.getStatus(),
+                registration.getCreatedAt(),
+                registration.getUpdatedAt()
+        );
+    }
+
+    private IncomingGameRegistrationResponse buildIncomingGameRegistrationResponse(GameRegistration registration) {
+        long activeMembersCount = teamMembershipRepository.countByTeamIdAndStatus(
+                registration.getTeam().getId(),
+                TeamMembershipStatus.ACTIVE
+        );
+
+        return new IncomingGameRegistrationResponse(
+                registration.getId(),
+                registration.getGame().getId(),
+                registration.getTeam().getId(),
+                registration.getTeam().getName(),
+                registration.getTeam().getCity(),
+                registration.getTeam().getCaptain().getId(),
+                registration.getTeam().getCaptain().getEmail(),
+                Math.toIntExact(activeMembersCount),
                 registration.getStatus(),
                 registration.getCreatedAt(),
                 registration.getUpdatedAt()
