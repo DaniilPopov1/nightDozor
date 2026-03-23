@@ -1,5 +1,6 @@
 package com.example.server.game.entity;
 
+import com.example.server.team.entity.Team;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -24,19 +25,19 @@ import java.util.Set;
 
 @Entity
 @Table(
-        name = "game_tasks",
+        name = "team_game_routes",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_game_tasks_game_order", columnNames = {"game_id", "order_index"})
+                @UniqueConstraint(name = "uk_team_game_routes_game_team", columnNames = {"game_id", "team_id"})
         },
         indexes = {
-                @Index(name = "idx_game_tasks_game_id", columnList = "game_id"),
-                @Index(name = "idx_game_tasks_order_index", columnList = "order_index")
+                @Index(name = "idx_team_game_routes_game_id", columnList = "game_id"),
+                @Index(name = "idx_team_game_routes_team_id", columnList = "team_id")
         }
 )
 @Getter
 @Setter
 @NoArgsConstructor
-public class GameTask {
+public class TeamGameRoute {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -46,23 +47,12 @@ public class GameTask {
     @JoinColumn(name = "game_id", nullable = false)
     private Game game;
 
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "team_id", nullable = false)
+    private Team team;
+
     @Column(nullable = false, length = 150)
-    private String title;
-
-    @Column(name = "riddle_text", nullable = false, length = 4000)
-    private String riddleText;
-
-    @Column(name = "answer_key", nullable = false, length = 255)
-    private String answerKey;
-
-    @Column(name = "order_index", nullable = false)
-    private Integer orderIndex;
-
-    @Column(name = "time_limit_minutes", nullable = false)
-    private Integer timeLimitMinutes;
-
-    @Column(name = "failure_penalty_minutes", nullable = false)
-    private Integer failurePenaltyMinutes;
+    private String name;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
@@ -70,11 +60,8 @@ public class GameTask {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt = Instant.now();
 
-    @OneToMany(mappedBy = "task", cascade = CascadeType.REMOVE, orphanRemoval = true)
-    private Set<GameTaskHint> hints = new HashSet<>();
-
-    @OneToMany(mappedBy = "task", cascade = CascadeType.REMOVE, orphanRemoval = true)
-    private Set<TeamGameRouteItem> routeItems = new HashSet<>();
+    @OneToMany(mappedBy = "route", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private Set<TeamGameRouteItem> items = new HashSet<>();
 
     @PreUpdate
     void onUpdate() {

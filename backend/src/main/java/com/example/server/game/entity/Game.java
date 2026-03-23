@@ -93,6 +93,9 @@ public class Game {
     @OneToMany(mappedBy = "game", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<GameTask> tasks = new HashSet<>();
 
+    @OneToMany(mappedBy = "game", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private Set<TeamGameRoute> routes = new HashSet<>();
+
     @PreUpdate
     void onUpdate() {
         updatedAt = Instant.now();
