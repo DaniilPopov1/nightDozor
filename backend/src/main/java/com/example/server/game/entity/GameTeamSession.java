@@ -75,6 +75,9 @@ public class GameTeamSession {
     @Column(name = "started_at", nullable = false, updatable = false)
     private Instant startedAt = Instant.now();
 
+    @Column(name = "current_task_started_at", nullable = false)
+    private Instant currentTaskStartedAt = Instant.now();
+
     @Column(name = "finished_at")
     private Instant finishedAt;
 

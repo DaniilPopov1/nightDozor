@@ -1,6 +1,7 @@
 package com.example.server.game.controller;
 
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.CurrentGameTaskResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
@@ -139,5 +140,12 @@ public class GameController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return ResponseEntity.ok(gameService.getTeamRegistrations(userDetails.getUsername()));
+    }
+
+    @GetMapping("/current-task")
+    public ResponseEntity<CurrentGameTaskResponse> getCurrentTask(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(gameService.getCurrentTask(userDetails.getUsername()));
     }
 }

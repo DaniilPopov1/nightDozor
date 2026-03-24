@@ -7,6 +7,8 @@ import com.example.server.common.exception.BadRequestException;
 import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.CurrentGameTaskHintResponse;
+import com.example.server.game.dto.CurrentGameTaskResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
@@ -20,12 +22,14 @@ import com.example.server.game.entity.GameRegistration;
 import com.example.server.game.entity.GameRegistrationStatus;
 import com.example.server.game.entity.GameStatus;
 import com.example.server.game.entity.GameTask;
+import com.example.server.game.entity.GameTaskHint;
 import com.example.server.game.entity.GameTeamSession;
 import com.example.server.game.entity.GameTeamSessionStatus;
 import com.example.server.game.entity.TeamGameRoute;
 import com.example.server.game.entity.TeamGameRouteItem;
 import com.example.server.game.repository.GameRegistrationRepository;
 import com.example.server.game.repository.GameRepository;
+import com.example.server.game.repository.GameTaskHintRepository;
 import com.example.server.game.repository.GameTeamSessionRepository;
 import com.example.server.game.repository.TeamGameRouteItemRepository;
 import com.example.server.game.repository.TeamGameRouteRepository;
@@ -39,6 +43,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -57,6 +62,7 @@ public class GameService {
     private final GameRepository gameRepository;
     private final GameRegistrationRepository gameRegistrationRepository;
     private final GameTeamSessionRepository gameTeamSessionRepository;
+    private final GameTaskHintRepository gameTaskHintRepository;
     private final TeamGameRouteRepository teamGameRouteRepository;
     private final TeamGameRouteItemRepository teamGameRouteItemRepository;
     private final TeamMembershipRepository teamMembershipRepository;
@@ -230,6 +236,7 @@ public class GameService {
             session.setCurrentOrderIndex(firstRouteItem.getOrderIndex());
             session.setStatus(GameTeamSessionStatus.IN_PROGRESS);
             session.setStartedAt(startedAt);
+            session.setCurrentTaskStartedAt(startedAt);
 
             gameTeamSessionRepository.save(session);
         }
@@ -291,6 +298,41 @@ public class GameService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public CurrentGameTaskResponse getCurrentTask(String userEmail) {
+        Team team = getActiveTeam(userEmail);
+        GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
+                .orElseThrow(() -> new NotFoundException("У команды нет активной игровой сессии"));
+
+        Instant now = Instant.now();
+        Instant taskStartedAt = session.getCurrentTaskStartedAt();
+        Instant deadlineAt = taskStartedAt.plusSeconds((long) session.getCurrentTask().getTimeLimitMinutes() * 60);
+        long remainingSeconds = Math.max(0, deadlineAt.getEpochSecond() - now.getEpochSecond());
+
+        List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(session.getRoute().getId());
+        List<CurrentGameTaskHintResponse> availableHints = buildAvailableHints(session.getCurrentTask(), taskStartedAt, now);
+
+        return new CurrentGameTaskResponse(
+                session.getId(),
+                session.getGame().getId(),
+                session.getGame().getTitle(),
+                session.getTeam().getId(),
+                session.getCurrentTask().getId(),
+                session.getCurrentTask().getTitle(),
+                session.getCurrentTask().getRiddleText(),
+                session.getCurrentOrderIndex(),
+                routeItems.size(),
+                session.getCurrentTask().getTimeLimitMinutes(),
+                session.getCurrentTask().getFailurePenaltyMinutes(),
+                taskStartedAt,
+                deadlineAt,
+                remainingSeconds,
+                session.getStatus(),
+                "ACTIVE",
+                availableHints
+        );
+    }
+
     private void validateCreateGameRequest(CreateGameRequest request) {
         validateGameRequest(
                 request.minTeamSize(),
@@ -320,15 +362,26 @@ public class GameService {
     }
 
     private Team getCaptainTeam(String captainEmail) {
+        Team team = getActiveTeam(captainEmail);
         User captain = userRepository.findByEmail(captainEmail)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
 
-        TeamMembership membership = teamMembershipRepository.findByUserIdAndStatus(captain.getId(), TeamMembershipStatus.ACTIVE)
+        TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserId(team.getId(), captain.getId())
                 .orElseThrow(() -> new NotFoundException("У пользователя нет команды"));
 
         if (membership.getRole() != TeamMembershipRole.CAPTAIN) {
             throw new BadRequestException("Подавать заявку на игру может только капитан команды");
         }
+
+        return team;
+    }
+
+    private Team getActiveTeam(String userEmail) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+
+        TeamMembership membership = teamMembershipRepository.findByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)
+                .orElseThrow(() -> new NotFoundException("У пользователя нет команды"));
 
         return membership.getTeam();
     }
@@ -342,6 +395,28 @@ public class GameService {
         }
 
         return registration;
+    }
+
+    private List<CurrentGameTaskHintResponse> buildAvailableHints(GameTask task, Instant taskStartedAt, Instant now) {
+        List<GameTaskHint> hints = gameTaskHintRepository.findAllByTaskIdOrderByOrderIndexAsc(task.getId());
+        long cumulativeDelaySeconds = 0;
+        List<CurrentGameTaskHintResponse> availableHints = new ArrayList<>();
+
+        for (GameTaskHint hint : hints) {
+            cumulativeDelaySeconds += (long) hint.getDelayMinutesFromPreviousHint() * 60;
+            Instant unlockedAt = taskStartedAt.plusSeconds(cumulativeDelaySeconds);
+
+            if (!unlockedAt.isAfter(now)) {
+                availableHints.add(new CurrentGameTaskHintResponse(
+                        hint.getId(),
+                        hint.getOrderIndex(),
+                        hint.getText(),
+                        unlockedAt
+                ));
+            }
+        }
+
+        return availableHints;
     }
 
     private void validateGameEditable(Game game) {
