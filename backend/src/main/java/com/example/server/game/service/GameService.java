@@ -8,6 +8,7 @@ import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.game.dto.CreateGameRequest;
 import com.example.server.game.dto.GameRegistrationResponse;
+import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
@@ -18,8 +19,16 @@ import com.example.server.game.entity.Game;
 import com.example.server.game.entity.GameRegistration;
 import com.example.server.game.entity.GameRegistrationStatus;
 import com.example.server.game.entity.GameStatus;
+import com.example.server.game.entity.GameTask;
+import com.example.server.game.entity.GameTeamSession;
+import com.example.server.game.entity.GameTeamSessionStatus;
+import com.example.server.game.entity.TeamGameRoute;
+import com.example.server.game.entity.TeamGameRouteItem;
 import com.example.server.game.repository.GameRegistrationRepository;
 import com.example.server.game.repository.GameRepository;
+import com.example.server.game.repository.GameTeamSessionRepository;
+import com.example.server.game.repository.TeamGameRouteItemRepository;
+import com.example.server.game.repository.TeamGameRouteRepository;
 import com.example.server.team.entity.Team;
 import com.example.server.team.entity.TeamMembership;
 import com.example.server.team.entity.TeamMembershipRole;
@@ -47,6 +56,9 @@ public class GameService {
 
     private final GameRepository gameRepository;
     private final GameRegistrationRepository gameRegistrationRepository;
+    private final GameTeamSessionRepository gameTeamSessionRepository;
+    private final TeamGameRouteRepository teamGameRouteRepository;
+    private final TeamGameRouteItemRepository teamGameRouteItemRepository;
     private final TeamMembershipRepository teamMembershipRepository;
     private final UserRepository userRepository;
 
@@ -173,6 +185,64 @@ public class GameService {
         registration.setStatus(GameRegistrationStatus.REJECTED);
         GameRegistration savedRegistration = gameRegistrationRepository.save(registration);
         return buildGameRegistrationResponse(savedRegistration);
+    }
+
+    @Transactional
+    public GameStartResponse startGame(String organizerEmail, Long gameId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+
+        if (game.getStatus() != GameStatus.REGISTRATION_CLOSED) {
+            throw new BadRequestException("Запустить игру можно только после закрытия регистрации");
+        }
+
+        if (gameTeamSessionRepository.existsByGameId(gameId)) {
+            throw new ConflictException("Игровые сессии для этой игры уже созданы");
+        }
+
+        List<GameRegistration> approvedRegistrations = gameRegistrationRepository
+                .findAllByGameIdAndStatusOrderByCreatedAtDesc(gameId, GameRegistrationStatus.APPROVED);
+
+        if (approvedRegistrations.isEmpty()) {
+            throw new BadRequestException("Нельзя запустить игру без подтвержденных команд");
+        }
+
+        Instant startedAt = Instant.now();
+
+        for (GameRegistration registration : approvedRegistrations) {
+            Team team = registration.getTeam();
+            TeamGameRoute route = teamGameRouteRepository.findByGameIdAndTeamId(gameId, team.getId())
+                    .orElseThrow(() -> new BadRequestException("Для подтвержденной команды не настроен маршрут заданий"));
+
+            List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(route.getId());
+            if (routeItems.isEmpty()) {
+                throw new BadRequestException("Маршрут подтвержденной команды не содержит заданий");
+            }
+
+            TeamGameRouteItem firstRouteItem = routeItems.getFirst();
+            GameTask firstTask = firstRouteItem.getTask();
+
+            GameTeamSession session = new GameTeamSession();
+            session.setGame(game);
+            session.setTeam(team);
+            session.setRoute(route);
+            session.setCurrentRouteItem(firstRouteItem);
+            session.setCurrentTask(firstTask);
+            session.setCurrentOrderIndex(firstRouteItem.getOrderIndex());
+            session.setStatus(GameTeamSessionStatus.IN_PROGRESS);
+            session.setStartedAt(startedAt);
+
+            gameTeamSessionRepository.save(session);
+        }
+
+        game.setStatus(GameStatus.IN_PROGRESS);
+        gameRepository.save(game);
+
+        return new GameStartResponse(
+                game.getId(),
+                game.getTitle(),
+                approvedRegistrations.size(),
+                startedAt
+        );
     }
 
     @Transactional(readOnly = true)

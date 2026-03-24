@@ -2,6 +2,7 @@ package com.example.server.team.entity;
 
 import com.example.server.auth.entity.User;
 import com.example.server.game.entity.GameRegistration;
+import com.example.server.game.entity.GameTeamSession;
 import com.example.server.game.entity.TeamGameRoute;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -53,4 +54,7 @@ public class Team {
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<TeamGameRoute> routes = new HashSet<>();
+
+    @OneToMany(mappedBy = "team", cascade = CascadeType.REMOVE, orphanRemoval = true)
+    private Set<GameTeamSession> gameSessions = new HashSet<>();
 }
