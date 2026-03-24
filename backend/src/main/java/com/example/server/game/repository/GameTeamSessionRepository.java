@@ -12,4 +12,5 @@ public interface GameTeamSessionRepository extends JpaRepository<GameTeamSession
     boolean existsByGameIdAndStatus(Long gameId, GameTeamSessionStatus status);
     List<GameTeamSession> findAllByGameId(Long gameId);
     Optional<GameTeamSession> findByTeamIdAndStatus(Long teamId, GameTeamSessionStatus status);
+    Optional<GameTeamSession> findTopByTeamIdOrderByStartedAtDesc(Long teamId);
 }

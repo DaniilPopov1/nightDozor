@@ -7,15 +7,25 @@ import com.example.server.common.exception.BadRequestException;
 import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.CreateGameTaskHintRequest;
+import com.example.server.game.dto.CreateGameTaskRequest;
+import com.example.server.game.dto.CreateTeamGameRouteRequest;
 import com.example.server.game.dto.CurrentGameTaskHintResponse;
 import com.example.server.game.dto.CurrentGameTaskResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameStartResponse;
+import com.example.server.game.dto.GameTeamProgressResponse;
+import com.example.server.game.dto.GameTeamStandingResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.GameTaskHintResponse;
+import com.example.server.game.dto.GameTaskResponse;
+import com.example.server.game.dto.AddTaskToRouteRequest;
 import com.example.server.game.dto.SubmitTaskKeyRequest;
 import com.example.server.game.dto.SubmitTaskKeyResponse;
+import com.example.server.game.dto.TeamGameRouteItemResponse;
+import com.example.server.game.dto.TeamGameRouteResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameStatusRequest;
@@ -31,6 +41,7 @@ import com.example.server.game.entity.TeamGameRoute;
 import com.example.server.game.entity.TeamGameRouteItem;
 import com.example.server.game.repository.GameRegistrationRepository;
 import com.example.server.game.repository.GameRepository;
+import com.example.server.game.repository.GameTaskRepository;
 import com.example.server.game.repository.GameTaskHintRepository;
 import com.example.server.game.repository.GameTeamSessionRepository;
 import com.example.server.game.repository.TeamGameRouteItemRepository;
@@ -40,12 +51,14 @@ import com.example.server.team.entity.TeamMembership;
 import com.example.server.team.entity.TeamMembershipRole;
 import com.example.server.team.entity.TeamMembershipStatus;
 import com.example.server.team.repository.TeamMembershipRepository;
+import com.example.server.team.repository.TeamRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
@@ -65,10 +78,12 @@ public class GameService {
     private final GameRepository gameRepository;
     private final GameRegistrationRepository gameRegistrationRepository;
     private final GameTeamSessionRepository gameTeamSessionRepository;
+    private final GameTaskRepository gameTaskRepository;
     private final GameTaskHintRepository gameTaskHintRepository;
     private final TeamGameRouteRepository teamGameRouteRepository;
     private final TeamGameRouteItemRepository teamGameRouteItemRepository;
     private final TeamMembershipRepository teamMembershipRepository;
+    private final TeamRepository teamRepository;
     private final UserRepository userRepository;
 
     @Transactional
@@ -255,6 +270,102 @@ public class GameService {
         );
     }
 
+    @Transactional
+    public GameTaskResponse createTask(String organizerEmail, Long gameId, CreateGameTaskRequest request) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+
+        boolean orderTaken = gameTaskRepository.findAllByGameIdOrderByOrderIndexAsc(gameId).stream()
+                .anyMatch(task -> task.getOrderIndex().equals(request.orderIndex()));
+        if (orderTaken) {
+            throw new ConflictException("Задание с таким порядком уже существует");
+        }
+
+        GameTask task = new GameTask();
+        task.setGame(game);
+        task.setTitle(request.title().trim());
+        task.setRiddleText(request.riddleText().trim());
+        task.setAnswerKey(request.answerKey().trim());
+        task.setOrderIndex(request.orderIndex());
+        task.setTimeLimitMinutes(request.timeLimitMinutes());
+        task.setFailurePenaltyMinutes(request.failurePenaltyMinutes());
+
+        GameTask savedTask = gameTaskRepository.save(task);
+        return buildGameTaskResponse(savedTask);
+    }
+
+    @Transactional
+    public GameTaskHintResponse addTaskHint(String organizerEmail, Long gameId, Long taskId, CreateGameTaskHintRequest request) {
+        getOrganizerGame(organizerEmail, gameId);
+        GameTask task = gameTaskRepository.findByIdAndGameId(taskId, gameId)
+                .orElseThrow(() -> new NotFoundException("Задание не найдено"));
+
+        List<GameTaskHint> existingHints = gameTaskHintRepository.findAllByTaskIdOrderByOrderIndexAsc(taskId);
+        if (existingHints.size() >= 2) {
+            throw new BadRequestException("Для задания можно создать только 2 подсказки");
+        }
+
+        boolean orderTaken = existingHints.stream().anyMatch(hint -> hint.getOrderIndex().equals(request.orderIndex()));
+        if (orderTaken) {
+            throw new ConflictException("Подсказка с таким порядком уже существует");
+        }
+
+        GameTaskHint hint = new GameTaskHint();
+        hint.setTask(task);
+        hint.setText(request.text().trim());
+        hint.setOrderIndex(request.orderIndex());
+        hint.setDelayMinutesFromPreviousHint(request.delayMinutesFromPreviousHint());
+
+        GameTaskHint savedHint = gameTaskHintRepository.save(hint);
+        return buildGameTaskHintResponse(savedHint);
+    }
+
+    @Transactional
+    public TeamGameRouteResponse createRoute(String organizerEmail, Long gameId, CreateTeamGameRouteRequest request) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        Team team = teamRepository.findById(request.teamId())
+                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
+
+        if (teamGameRouteRepository.findByGameIdAndTeamId(gameId, team.getId()).isPresent()) {
+            throw new ConflictException("Маршрут для этой команды уже существует");
+        }
+
+        TeamGameRoute route = new TeamGameRoute();
+        route.setGame(game);
+        route.setTeam(team);
+        route.setName(request.name().trim());
+
+        TeamGameRoute savedRoute = teamGameRouteRepository.save(route);
+        return buildTeamGameRouteResponse(savedRoute);
+    }
+
+    @Transactional
+    public TeamGameRouteResponse addTaskToRoute(String organizerEmail, Long gameId, Long routeId, AddTaskToRouteRequest request) {
+        getOrganizerGame(organizerEmail, gameId);
+        TeamGameRoute route = teamGameRouteRepository.findByIdAndGameId(routeId, gameId)
+                .orElseThrow(() -> new NotFoundException("Маршрут не найден"));
+        GameTask task = gameTaskRepository.findByIdAndGameId(request.taskId(), gameId)
+                .orElseThrow(() -> new NotFoundException("Задание не найдено"));
+
+        List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(routeId);
+        boolean orderTaken = routeItems.stream().anyMatch(item -> item.getOrderIndex().equals(request.orderIndex()));
+        if (orderTaken) {
+            throw new ConflictException("Элемент маршрута с таким порядком уже существует");
+        }
+
+        boolean taskTaken = routeItems.stream().anyMatch(item -> item.getTask().getId().equals(task.getId()));
+        if (taskTaken) {
+            throw new ConflictException("Это задание уже добавлено в маршрут");
+        }
+
+        TeamGameRouteItem routeItem = new TeamGameRouteItem();
+        routeItem.setRoute(route);
+        routeItem.setTask(task);
+        routeItem.setOrderIndex(request.orderIndex());
+        teamGameRouteItemRepository.save(routeItem);
+
+        return buildTeamGameRouteResponse(route);
+    }
+
     @Transactional(readOnly = true)
     public List<GameListItemResponse> getOrganizerGames(String organizerEmail) {
         User organizer = getOrganizerByEmail(organizerEmail);
@@ -422,6 +533,55 @@ public class GameService {
         );
     }
 
+    @Transactional
+    public GameTeamProgressResponse getMyTeamProgress(String userEmail) {
+        Team team = getActiveTeam(userEmail);
+        GameTeamSession teamSession = gameTeamSessionRepository.findTopByTeamIdOrderByStartedAtDesc(team.getId())
+                .orElseThrow(() -> new NotFoundException("У команды нет игровой сессии"));
+
+        List<GameTeamSession> sessions = gameTeamSessionRepository.findAllByGameId(teamSession.getGame().getId());
+        Instant now = Instant.now();
+
+        for (GameTeamSession session : sessions) {
+            synchronizeSessionWithTimeout(session, now);
+        }
+
+        sessions.sort(Comparator
+                .comparingLong(this::getTotalScoreSeconds)
+                .thenComparing(GameTeamSession::getStartedAt));
+
+        List<GameTeamStandingResponse> standings = new ArrayList<>();
+        int currentPlace = 0;
+
+        for (int i = 0; i < sessions.size(); i++) {
+            GameTeamSession session = sessions.get(i);
+            int place = i + 1;
+            standings.add(buildGameTeamStandingResponse(session, place));
+
+            if (session.getId().equals(teamSession.getId())) {
+                currentPlace = place;
+                teamSession = session;
+            }
+        }
+
+        return new GameTeamProgressResponse(
+                teamSession.getGame().getId(),
+                teamSession.getGame().getTitle(),
+                teamSession.getTeam().getId(),
+                teamSession.getTeam().getName(),
+                currentPlace,
+                getCompletedTasksCount(teamSession),
+                getTotalTasksCount(teamSession),
+                teamSession.getTotalPenaltyMinutes(),
+                getElapsedSeconds(teamSession),
+                getTotalScoreSeconds(teamSession),
+                teamSession.getStatus(),
+                teamSession.getStartedAt(),
+                teamSession.getFinishedAt(),
+                standings
+        );
+    }
+
     private void validateCreateGameRequest(CreateGameRequest request) {
         validateGameRequest(
                 request.minTeamSize(),
@@ -551,6 +711,43 @@ public class GameService {
             game.setFinishedAt(finishedAt);
             gameRepository.save(game);
         }
+    }
+
+    private int getCompletedTasksCount(GameTeamSession session) {
+        int totalTasksCount = getTotalTasksCount(session);
+
+        return switch (session.getStatus()) {
+            case FINISHED -> totalTasksCount;
+            case IN_PROGRESS, CANCELED -> Math.max(0, session.getCurrentOrderIndex() - 1);
+        };
+    }
+
+    private int getTotalTasksCount(GameTeamSession session) {
+        return teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(session.getRoute().getId()).size();
+    }
+
+    private long getElapsedSeconds(GameTeamSession session) {
+        Instant end = session.getFinishedAt() != null ? session.getFinishedAt() : Instant.now();
+        return Math.max(0, end.getEpochSecond() - session.getStartedAt().getEpochSecond());
+    }
+
+    private long getTotalScoreSeconds(GameTeamSession session) {
+        return getElapsedSeconds(session) + (long) session.getTotalPenaltyMinutes() * 60;
+    }
+
+    private GameTeamStandingResponse buildGameTeamStandingResponse(GameTeamSession session, int place) {
+        return new GameTeamStandingResponse(
+                place,
+                session.getTeam().getId(),
+                session.getTeam().getName(),
+                getCompletedTasksCount(session),
+                getTotalTasksCount(session),
+                session.getTotalPenaltyMinutes(),
+                getElapsedSeconds(session),
+                getTotalScoreSeconds(session),
+                session.getStatus(),
+                session.getFinishedAt()
+        );
     }
 
     private void validateGameEditable(Game game) {
@@ -698,6 +895,55 @@ public class GameService {
                 registration.getStatus(),
                 registration.getCreatedAt(),
                 registration.getUpdatedAt()
+        );
+    }
+
+    private GameTaskResponse buildGameTaskResponse(GameTask task) {
+        List<GameTaskHintResponse> hints = gameTaskHintRepository.findAllByTaskIdOrderByOrderIndexAsc(task.getId()).stream()
+                .map(this::buildGameTaskHintResponse)
+                .toList();
+
+        return new GameTaskResponse(
+                task.getId(),
+                task.getGame().getId(),
+                task.getTitle(),
+                task.getRiddleText(),
+                task.getAnswerKey(),
+                task.getOrderIndex(),
+                task.getTimeLimitMinutes(),
+                task.getFailurePenaltyMinutes(),
+                task.getCreatedAt(),
+                hints
+        );
+    }
+
+    private GameTaskHintResponse buildGameTaskHintResponse(GameTaskHint hint) {
+        return new GameTaskHintResponse(
+                hint.getId(),
+                hint.getOrderIndex(),
+                hint.getText(),
+                hint.getDelayMinutesFromPreviousHint()
+        );
+    }
+
+    private TeamGameRouteResponse buildTeamGameRouteResponse(TeamGameRoute route) {
+        List<TeamGameRouteItemResponse> items = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(route.getId()).stream()
+                .map(item -> new TeamGameRouteItemResponse(
+                        item.getId(),
+                        item.getOrderIndex(),
+                        item.getTask().getId(),
+                        item.getTask().getTitle()
+                ))
+                .toList();
+
+        return new TeamGameRouteResponse(
+                route.getId(),
+                route.getGame().getId(),
+                route.getTeam().getId(),
+                route.getTeam().getName(),
+                route.getName(),
+                route.getCreatedAt(),
+                items
         );
     }
 }

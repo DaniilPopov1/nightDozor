@@ -8,5 +8,6 @@ import java.util.Optional;
 
 public interface TeamGameRouteRepository extends JpaRepository<TeamGameRoute, Long> {
     Optional<TeamGameRoute> findByGameIdAndTeamId(Long gameId, Long teamId);
+    Optional<TeamGameRoute> findByIdAndGameId(Long id, Long gameId);
     List<TeamGameRoute> findAllByGameIdOrderByCreatedAtAsc(Long gameId);
 }

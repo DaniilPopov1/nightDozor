@@ -1,14 +1,22 @@
 package com.example.server.game.controller;
 
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.CreateGameTaskHintRequest;
+import com.example.server.game.dto.CreateGameTaskRequest;
+import com.example.server.game.dto.CreateTeamGameRouteRequest;
 import com.example.server.game.dto.CurrentGameTaskResponse;
+import com.example.server.game.dto.GameTeamProgressResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.GameTaskHintResponse;
+import com.example.server.game.dto.GameTaskResponse;
+import com.example.server.game.dto.AddTaskToRouteRequest;
 import com.example.server.game.dto.SubmitTaskKeyRequest;
 import com.example.server.game.dto.SubmitTaskKeyResponse;
+import com.example.server.game.dto.TeamGameRouteResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameStatusRequest;
@@ -111,6 +119,47 @@ public class GameController {
         return ResponseEntity.ok(gameService.startGame(userDetails.getUsername(), gameId));
     }
 
+    @PostMapping("/my/{gameId}/tasks")
+    public ResponseEntity<GameTaskResponse> createTask(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @Valid @RequestBody CreateGameTaskRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(gameService.createTask(userDetails.getUsername(), gameId, request));
+    }
+
+    @PostMapping("/my/{gameId}/tasks/{taskId}/hints")
+    public ResponseEntity<GameTaskHintResponse> addTaskHint(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long taskId,
+            @Valid @RequestBody CreateGameTaskHintRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(gameService.addTaskHint(userDetails.getUsername(), gameId, taskId, request));
+    }
+
+    @PostMapping("/my/{gameId}/routes")
+    public ResponseEntity<TeamGameRouteResponse> createRoute(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @Valid @RequestBody CreateTeamGameRouteRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(gameService.createRoute(userDetails.getUsername(), gameId, request));
+    }
+
+    @PostMapping("/my/{gameId}/routes/{routeId}/items")
+    public ResponseEntity<TeamGameRouteResponse> addTaskToRoute(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long routeId,
+            @Valid @RequestBody AddTaskToRouteRequest request
+    ) {
+        return ResponseEntity.ok(gameService.addTaskToRoute(userDetails.getUsername(), gameId, routeId, request));
+    }
+
     @GetMapping("/my/{gameId}/registrations")
     public ResponseEntity<List<IncomingGameRegistrationResponse>> getIncomingRegistrations(
             @AuthenticationPrincipal UserDetails userDetails,
@@ -157,5 +206,12 @@ public class GameController {
             @Valid @RequestBody SubmitTaskKeyRequest request
     ) {
         return ResponseEntity.ok(gameService.submitTaskKey(userDetails.getUsername(), request));
+    }
+
+    @GetMapping("/progress/my-team")
+    public ResponseEntity<GameTeamProgressResponse> getMyTeamProgress(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return ResponseEntity.ok(gameService.getMyTeamProgress(userDetails.getUsername()));
     }
 }
