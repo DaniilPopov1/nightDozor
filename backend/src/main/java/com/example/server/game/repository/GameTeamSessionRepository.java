@@ -9,6 +9,7 @@ import java.util.Optional;
 
 public interface GameTeamSessionRepository extends JpaRepository<GameTeamSession, Long> {
     boolean existsByGameId(Long gameId);
+    boolean existsByGameIdAndStatus(Long gameId, GameTeamSessionStatus status);
     List<GameTeamSession> findAllByGameId(Long gameId);
     Optional<GameTeamSession> findByTeamIdAndStatus(Long teamId, GameTeamSessionStatus status);
 }

@@ -14,6 +14,8 @@ import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.SubmitTaskKeyRequest;
+import com.example.server.game.dto.SubmitTaskKeyResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameStatusRequest;
@@ -46,6 +48,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 @Service
@@ -333,6 +336,77 @@ public class GameService {
         );
     }
 
+    @Transactional
+    public SubmitTaskKeyResponse submitTaskKey(String captainEmail, SubmitTaskKeyRequest request) {
+        Team team = getCaptainTeam(captainEmail);
+        GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
+                .orElseThrow(() -> new NotFoundException("У команды нет активной игровой сессии"));
+
+        String providedKey = normalizeAnswerKey(request.key());
+        String expectedKey = normalizeAnswerKey(session.getCurrentTask().getAnswerKey());
+
+        if (!expectedKey.equals(providedKey)) {
+            throw new BadRequestException("Неверный ключ");
+        }
+
+        Instant submittedAt = Instant.now();
+        GameTask completedTask = session.getCurrentTask();
+        Integer completedOrderIndex = session.getCurrentOrderIndex();
+        List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(session.getRoute().getId());
+
+        TeamGameRouteItem nextRouteItem = routeItems.stream()
+                .filter(item -> item.getOrderIndex() > completedOrderIndex)
+                .findFirst()
+                .orElse(null);
+
+        if (nextRouteItem == null) {
+            session.setStatus(GameTeamSessionStatus.FINISHED);
+            session.setFinishedAt(submittedAt);
+            gameTeamSessionRepository.save(session);
+
+            if (!gameTeamSessionRepository.existsByGameIdAndStatus(session.getGame().getId(), GameTeamSessionStatus.IN_PROGRESS)) {
+                Game game = session.getGame();
+                game.setStatus(GameStatus.FINISHED);
+                game.setFinishedAt(submittedAt);
+                gameRepository.save(game);
+            }
+
+            return new SubmitTaskKeyResponse(
+                    session.getId(),
+                    team.getId(),
+                    completedTask.getId(),
+                    completedTask.getTitle(),
+                    completedOrderIndex,
+                    true,
+                    session.getStatus(),
+                    null,
+                    null,
+                    null,
+                    submittedAt
+            );
+        }
+
+        session.setCurrentRouteItem(nextRouteItem);
+        session.setCurrentTask(nextRouteItem.getTask());
+        session.setCurrentOrderIndex(nextRouteItem.getOrderIndex());
+        session.setCurrentTaskStartedAt(submittedAt);
+        gameTeamSessionRepository.save(session);
+
+        return new SubmitTaskKeyResponse(
+                session.getId(),
+                team.getId(),
+                completedTask.getId(),
+                completedTask.getTitle(),
+                completedOrderIndex,
+                false,
+                session.getStatus(),
+                nextRouteItem.getTask().getId(),
+                nextRouteItem.getTask().getTitle(),
+                nextRouteItem.getOrderIndex(),
+                submittedAt
+        );
+    }
+
     private void validateCreateGameRequest(CreateGameRequest request) {
         validateGameRequest(
                 request.minTeamSize(),
@@ -417,6 +491,10 @@ public class GameService {
         }
 
         return availableHints;
+    }
+
+    private String normalizeAnswerKey(String answerKey) {
+        return answerKey.trim().toUpperCase(Locale.ROOT);
     }
 
     private void validateGameEditable(Game game) {

@@ -7,6 +7,8 @@ import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameListItemResponse;
 import com.example.server.game.dto.GameResponse;
+import com.example.server.game.dto.SubmitTaskKeyRequest;
+import com.example.server.game.dto.SubmitTaskKeyResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameStatusRequest;
@@ -147,5 +149,13 @@ public class GameController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return ResponseEntity.ok(gameService.getCurrentTask(userDetails.getUsername()));
+    }
+
+    @PostMapping("/current-task/submit-key")
+    public ResponseEntity<SubmitTaskKeyResponse> submitTaskKey(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody SubmitTaskKeyRequest request
+    ) {
+        return ResponseEntity.ok(gameService.submitTaskKey(userDetails.getUsername(), request));
     }
 }
