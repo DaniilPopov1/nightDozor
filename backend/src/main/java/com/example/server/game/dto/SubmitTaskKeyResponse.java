@@ -10,6 +10,7 @@ public record SubmitTaskKeyResponse(
         Long completedTaskId,
         String completedTaskTitle,
         Integer completedOrderIndex,
+        Integer totalPenaltyMinutes,
         boolean gameSessionFinished,
         GameTeamSessionStatus sessionStatus,
         Long nextTaskId,

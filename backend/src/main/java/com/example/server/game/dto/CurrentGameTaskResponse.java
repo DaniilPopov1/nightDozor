@@ -17,6 +17,7 @@ public record CurrentGameTaskResponse(
         int totalTasks,
         Integer timeLimitMinutes,
         Integer failurePenaltyMinutes,
+        Integer totalPenaltyMinutes,
         Instant taskStartedAt,
         Instant taskDeadlineAt,
         long remainingSeconds,

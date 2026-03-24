@@ -301,11 +301,17 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CurrentGameTaskResponse getCurrentTask(String userEmail) {
         Team team = getActiveTeam(userEmail);
         GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
                 .orElseThrow(() -> new NotFoundException("У команды нет активной игровой сессии"));
+
+        synchronizeSessionWithTimeout(session, Instant.now());
+
+        if (session.getStatus() != GameTeamSessionStatus.IN_PROGRESS) {
+            throw new NotFoundException("У команды нет активного задания");
+        }
 
         Instant now = Instant.now();
         Instant taskStartedAt = session.getCurrentTaskStartedAt();
@@ -327,6 +333,7 @@ public class GameService {
                 routeItems.size(),
                 session.getCurrentTask().getTimeLimitMinutes(),
                 session.getCurrentTask().getFailurePenaltyMinutes(),
+                session.getTotalPenaltyMinutes(),
                 taskStartedAt,
                 deadlineAt,
                 remainingSeconds,
@@ -341,6 +348,12 @@ public class GameService {
         Team team = getCaptainTeam(captainEmail);
         GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
                 .orElseThrow(() -> new NotFoundException("У команды нет активной игровой сессии"));
+
+        synchronizeSessionWithTimeout(session, Instant.now());
+
+        if (session.getStatus() != GameTeamSessionStatus.IN_PROGRESS) {
+            throw new BadRequestException("Текущее задание уже завершено по таймауту");
+        }
 
         String providedKey = normalizeAnswerKey(request.key());
         String expectedKey = normalizeAnswerKey(session.getCurrentTask().getAnswerKey());
@@ -373,13 +386,14 @@ public class GameService {
 
             return new SubmitTaskKeyResponse(
                     session.getId(),
-                    team.getId(),
-                    completedTask.getId(),
-                    completedTask.getTitle(),
-                    completedOrderIndex,
-                    true,
-                    session.getStatus(),
-                    null,
+                team.getId(),
+                completedTask.getId(),
+                completedTask.getTitle(),
+                completedOrderIndex,
+                session.getTotalPenaltyMinutes(),
+                true,
+                session.getStatus(),
+                null,
                     null,
                     null,
                     submittedAt
@@ -398,6 +412,7 @@ public class GameService {
                 completedTask.getId(),
                 completedTask.getTitle(),
                 completedOrderIndex,
+                session.getTotalPenaltyMinutes(),
                 false,
                 session.getStatus(),
                 nextRouteItem.getTask().getId(),
@@ -493,8 +508,49 @@ public class GameService {
         return availableHints;
     }
 
+    private void synchronizeSessionWithTimeout(GameTeamSession session, Instant referenceNow) {
+        while (session.getStatus() == GameTeamSessionStatus.IN_PROGRESS) {
+            Instant deadlineAt = session.getCurrentTaskStartedAt()
+                    .plusSeconds((long) session.getCurrentTask().getTimeLimitMinutes() * 60);
+
+            if (deadlineAt.isAfter(referenceNow)) {
+                return;
+            }
+
+            session.setTotalPenaltyMinutes(session.getTotalPenaltyMinutes() + session.getCurrentTask().getFailurePenaltyMinutes());
+
+            List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(session.getRoute().getId());
+            TeamGameRouteItem nextRouteItem = routeItems.stream()
+                    .filter(item -> item.getOrderIndex() > session.getCurrentOrderIndex())
+                    .findFirst()
+                    .orElse(null);
+
+            if (nextRouteItem == null) {
+                session.setStatus(GameTeamSessionStatus.FINISHED);
+                session.setFinishedAt(deadlineAt);
+                gameTeamSessionRepository.save(session);
+                finishGameIfNoActiveSessions(session.getGame(), deadlineAt);
+                return;
+            }
+
+            session.setCurrentRouteItem(nextRouteItem);
+            session.setCurrentTask(nextRouteItem.getTask());
+            session.setCurrentOrderIndex(nextRouteItem.getOrderIndex());
+            session.setCurrentTaskStartedAt(deadlineAt);
+            gameTeamSessionRepository.save(session);
+        }
+    }
+
     private String normalizeAnswerKey(String answerKey) {
         return answerKey.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private void finishGameIfNoActiveSessions(Game game, Instant finishedAt) {
+        if (!gameTeamSessionRepository.existsByGameIdAndStatus(game.getId(), GameTeamSessionStatus.IN_PROGRESS)) {
+            game.setStatus(GameStatus.FINISHED);
+            game.setFinishedAt(finishedAt);
+            gameRepository.save(game);
+        }
     }
 
     private void validateGameEditable(Game game) {
