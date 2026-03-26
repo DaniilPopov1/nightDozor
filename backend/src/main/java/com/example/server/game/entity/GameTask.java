@@ -36,6 +36,10 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность задания игры.
+ * Содержит загадку, правильный ключ, лимит времени и штраф за провал.
+ */
 public class GameTask {
 
     @Id
@@ -77,6 +81,9 @@ public class GameTask {
     private Set<TeamGameRouteItem> routeItems = new HashSet<>();
 
     @PreUpdate
+    /**
+     * Обновляет время последнего изменения задания.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

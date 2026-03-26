@@ -18,6 +18,9 @@ import java.io.IOException;
 
 @Component
 @RequiredArgsConstructor
+/**
+ * Фильтр, который извлекает JWT из заголовка Authorization и аутентифицирует пользователя.
+ */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String AUTHORIZATION_HEADER = "Authorization";
@@ -27,6 +30,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
 
     @Override
+    /**
+     * Проверяет наличие Bearer token, валидирует его и заполняет SecurityContext.
+     *
+     * @param request входящий HTTP-запрос
+     * @param response HTTP-ответ
+     * @param filterChain цепочка фильтров
+     * @throws ServletException если фильтр не может обработать запрос
+     * @throws IOException если возникает ошибка ввода-вывода
+     */
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,

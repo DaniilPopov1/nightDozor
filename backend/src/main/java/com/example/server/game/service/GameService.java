@@ -66,6 +66,9 @@ import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Сервис бизнес-логики игр, заявок на участие, маршрутов, заданий и игрового прогресса.
+ */
 public class GameService {
 
     private static final Set<GameStatus> PUBLIC_GAME_STATUSES = EnumSet.of(
@@ -87,6 +90,13 @@ public class GameService {
     private final UserRepository userRepository;
 
     @Transactional
+    /**
+     * Создает новую игру для организатора.
+     *
+     * @param organizerEmail email организатора
+     * @param request данные игры
+     * @return созданная игра
+     */
     public GameResponse createGame(String organizerEmail, CreateGameRequest request) {
         User organizer = getOrganizerByEmail(organizerEmail);
         validateCreateGameRequest(request);
@@ -109,6 +119,14 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Обновляет параметры игры до ее старта.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param request новые параметры игры
+     * @return обновленная игра
+     */
     public GameResponse updateGame(String organizerEmail, Long gameId, UpdateGameRequest request) {
         Game game = getOrganizerGame(organizerEmail, gameId);
         validateGameEditable(game);
@@ -135,6 +153,14 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Выполняет допустимый переход статуса игры.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param request новый статус игры
+     * @return обновленная игра
+     */
     public GameResponse updateGameStatus(String organizerEmail, Long gameId, UpdateGameStatusRequest request) {
         Game game = getOrganizerGame(organizerEmail, gameId);
         applyStatusTransition(game, request.status());
@@ -144,6 +170,13 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Создает заявку команды капитана на участие в игре.
+     *
+     * @param captainEmail email капитана команды
+     * @param gameId идентификатор игры
+     * @return созданная заявка
+     */
     public GameRegistrationResponse submitGameRegistration(String captainEmail, Long gameId) {
         Team team = getCaptainTeam(captainEmail);
         Game game = gameRepository.findById(gameId)
@@ -177,6 +210,13 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Отменяет pending-заявку команды на участие в игре.
+     *
+     * @param captainEmail email капитана команды
+     * @param gameId идентификатор игры
+     * @return обновленная заявка
+     */
     public GameRegistrationResponse cancelGameRegistration(String captainEmail, Long gameId) {
         Team team = getCaptainTeam(captainEmail);
         GameRegistration registration = gameRegistrationRepository.findByGameIdAndTeamId(gameId, team.getId())
@@ -192,6 +232,14 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Подтверждает заявку команды на участие в игре.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param registrationId идентификатор заявки
+     * @return обновленная заявка
+     */
     public GameRegistrationResponse approveRegistration(String organizerEmail, Long gameId, Long registrationId) {
         getOrganizerGame(organizerEmail, gameId);
         GameRegistration registration = getPendingRegistration(gameId, registrationId);
@@ -202,6 +250,14 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Отклоняет заявку команды на участие в игре.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param registrationId идентификатор заявки
+     * @return обновленная заявка
+     */
     public GameRegistrationResponse rejectRegistration(String organizerEmail, Long gameId, Long registrationId) {
         getOrganizerGame(organizerEmail, gameId);
         GameRegistration registration = getPendingRegistration(gameId, registrationId);
@@ -212,6 +268,13 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Запускает игру и создает игровые сессии для всех подтвержденных команд.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return результат запуска игры
+     */
     public GameStartResponse startGame(String organizerEmail, Long gameId) {
         Game game = getOrganizerGame(organizerEmail, gameId);
 
@@ -271,6 +334,14 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Создает новое задание в игре.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param request данные задания
+     * @return созданное задание
+     */
     public GameTaskResponse createTask(String organizerEmail, Long gameId, CreateGameTaskRequest request) {
         Game game = getOrganizerGame(organizerEmail, gameId);
 
@@ -294,6 +365,15 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Добавляет подсказку к заданию игры.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param taskId идентификатор задания
+     * @param request данные подсказки
+     * @return созданная подсказка
+     */
     public GameTaskHintResponse addTaskHint(String organizerEmail, Long gameId, Long taskId, CreateGameTaskHintRequest request) {
         getOrganizerGame(organizerEmail, gameId);
         GameTask task = gameTaskRepository.findByIdAndGameId(taskId, gameId)
@@ -320,6 +400,14 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Создает маршрут заданий для конкретной команды в рамках игры.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param request данные маршрута
+     * @return созданный маршрут
+     */
     public TeamGameRouteResponse createRoute(String organizerEmail, Long gameId, CreateTeamGameRouteRequest request) {
         Game game = getOrganizerGame(organizerEmail, gameId);
         Team team = teamRepository.findById(request.teamId())
@@ -339,6 +427,15 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Добавляет задание в маршрут команды.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @param routeId идентификатор маршрута
+     * @param request данные элемента маршрута
+     * @return обновленный маршрут
+     */
     public TeamGameRouteResponse addTaskToRoute(String organizerEmail, Long gameId, Long routeId, AddTaskToRouteRequest request) {
         getOrganizerGame(organizerEmail, gameId);
         TeamGameRoute route = teamGameRouteRepository.findByIdAndGameId(routeId, gameId)
@@ -367,6 +464,12 @@ public class GameService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает список игр текущего организатора.
+     *
+     * @param organizerEmail email организатора
+     * @return список игр
+     */
     public List<GameListItemResponse> getOrganizerGames(String organizerEmail) {
         User organizer = getOrganizerByEmail(organizerEmail);
 
@@ -376,6 +479,12 @@ public class GameService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает публичный список игр с опциональной фильтрацией по городу.
+     *
+     * @param city город для фильтрации
+     * @return список доступных игр
+     */
     public List<GameListItemResponse> getPublicGames(String city) {
         List<Game> games = city == null || city.isBlank()
                 ? gameRepository.findAllByStatusInOrderByCreatedAtDesc(PUBLIC_GAME_STATUSES)
@@ -387,11 +496,25 @@ public class GameService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает подробную информацию об игре текущего организатора.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return данные игры
+     */
     public GameResponse getOrganizerGameById(String organizerEmail, Long gameId) {
         return buildGameResponse(getOrganizerGame(organizerEmail, gameId));
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает входящие заявки команд для указанной игры организатора.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return список заявок команд
+     */
     public List<IncomingGameRegistrationResponse> getIncomingRegistrations(String organizerEmail, Long gameId) {
         Game game = getOrganizerGame(organizerEmail, gameId);
 
@@ -404,6 +527,12 @@ public class GameService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает все заявки текущей команды на игры.
+     *
+     * @param captainEmail email капитана команды
+     * @return список заявок команды
+     */
     public List<TeamGameRegistrationResponse> getTeamRegistrations(String captainEmail) {
         Team team = getCaptainTeam(captainEmail);
 
@@ -413,6 +542,13 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Возвращает текущее активное задание команды пользователя.
+     * Перед формированием ответа синхронизирует таймаут задания.
+     *
+     * @param userEmail email участника команды
+     * @return данные текущего задания
+     */
     public CurrentGameTaskResponse getCurrentTask(String userEmail) {
         Team team = getActiveTeam(userEmail);
         GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
@@ -455,6 +591,13 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Проверяет ключ текущего задания и переводит команду на следующий шаг маршрута.
+     *
+     * @param captainEmail email капитана команды
+     * @param request ключ задания
+     * @return результат проверки ключа
+     */
     public SubmitTaskKeyResponse submitTaskKey(String captainEmail, SubmitTaskKeyRequest request) {
         Team team = getCaptainTeam(captainEmail);
         GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
@@ -534,6 +677,12 @@ public class GameService {
     }
 
     @Transactional
+    /**
+     * Рассчитывает текущий прогресс команды и общий зачет по игре.
+     *
+     * @param userEmail email участника команды
+     * @return прогресс команды и standings игры
+     */
     public GameTeamProgressResponse getMyTeamProgress(String userEmail) {
         Team team = getActiveTeam(userEmail);
         GameTeamSession teamSession = gameTeamSessionRepository.findTopByTeamIdOrderByStartedAtDesc(team.getId())

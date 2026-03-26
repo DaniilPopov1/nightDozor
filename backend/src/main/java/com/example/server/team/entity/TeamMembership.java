@@ -23,6 +23,10 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность членства пользователя в команде.
+ * Используется для хранения роли и статуса участника внутри команды.
+ */
 public class TeamMembership {
 
     @Id
@@ -55,6 +59,9 @@ public class TeamMembership {
     private Instant joinedAt;
 
     @PreUpdate
+    /**
+     * Обновляет техническое поле времени изменения записи перед сохранением.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

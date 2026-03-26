@@ -6,6 +6,13 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+/**
+ * DTO запроса на создание подсказки к заданию.
+ *
+ * @param text текст подсказки
+ * @param orderIndex порядок подсказки внутри задания
+ * @param delayMinutesFromPreviousHint задержка показа относительно предыдущей подсказки
+ */
 public record CreateGameTaskHintRequest(
         @NotBlank @Size(max = 4000) String text,
         @NotNull @Min(1) @Max(2) Integer orderIndex,

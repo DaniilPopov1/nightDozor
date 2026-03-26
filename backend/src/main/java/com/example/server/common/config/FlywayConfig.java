@@ -12,10 +12,20 @@ import javax.sql.DataSource;
 import java.util.Arrays;
 
 @Configuration
+/**
+ * Конфигурация запуска Flyway-миграций и порядка их инициализации относительно JPA.
+ */
 public class FlywayConfig {
 
     @Bean(initMethod = "migrate")
     @ConditionalOnProperty(prefix = "spring.flyway", name = "enabled", havingValue = "true", matchIfMissing = true)
+    /**
+     * Создает и настраивает экземпляр Flyway для выполнения SQL-миграций приложения.
+     *
+     * @param dataSource источник данных приложения
+     * @param environment окружение Spring с настройками Flyway
+     * @return настроенный экземпляр Flyway
+     */
     public Flyway flyway(
             DataSource dataSource,
             org.springframework.core.env.Environment environment
@@ -40,6 +50,11 @@ public class FlywayConfig {
     }
 
     @Bean
+    /**
+     * Гарантирует, что миграции Flyway выполняются до инициализации EntityManagerFactory.
+     *
+     * @return post-processor, добавляющий зависимость entityManagerFactory от flyway
+     */
     public static BeanFactoryPostProcessor flywayEntityManagerDependencyPostProcessor() {
         return beanFactory -> {
             if (!beanFactory.containsBeanDefinition("flyway")

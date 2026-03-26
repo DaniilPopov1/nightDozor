@@ -36,6 +36,10 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность игровой сессии команды в рамках конкретной игры.
+ * Хранит текущий шаг маршрута, штрафы и состояние прохождения.
+ */
 public class GameTeamSession {
 
     @Id
@@ -85,6 +89,9 @@ public class GameTeamSession {
     private Instant updatedAt = Instant.now();
 
     @PreUpdate
+    /**
+     * Обновляет время последнего изменения игровой сессии.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

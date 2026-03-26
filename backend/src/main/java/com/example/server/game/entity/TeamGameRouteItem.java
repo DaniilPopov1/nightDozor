@@ -34,6 +34,10 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность элемента маршрута команды.
+ * Связывает маршрут с конкретным заданием и его порядком прохождения.
+ */
 public class TeamGameRouteItem {
 
     @Id
@@ -58,6 +62,9 @@ public class TeamGameRouteItem {
     private Instant updatedAt = Instant.now();
 
     @PreUpdate
+    /**
+     * Обновляет время последнего изменения элемента маршрута.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

@@ -36,6 +36,9 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность заявки команды на участие в игре.
+ */
 public class GameRegistration {
 
     @Id
@@ -61,6 +64,9 @@ public class GameRegistration {
     private Instant updatedAt = Instant.now();
 
     @PreUpdate
+    /**
+     * Обновляет время последнего изменения заявки.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

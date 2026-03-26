@@ -19,6 +19,9 @@ import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Сервис регистрации нового пользователя и выпуска токена подтверждения email.
+ */
 public class RegistrationService {
 
     private final UserRepository userRepository;
@@ -28,6 +31,11 @@ public class RegistrationService {
     private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
+    /**
+     * Создает нового пользователя, сохраняет токен подтверждения и публикует событие регистрации.
+     *
+     * @param request данные пользователя для регистрации
+     */
     public void register(RegisterRequest request) {
         String email = normalizeEmail(request.email());
 
@@ -55,6 +63,12 @@ public class RegistrationService {
         );
     }
 
+    /**
+     * Нормализует email перед сохранением и поиском.
+     *
+     * @param email исходное значение email
+     * @return email в нормализованном виде
+     */
     private String normalizeEmail(String email) {
         return email.trim().toLowerCase(Locale.ROOT);
     }

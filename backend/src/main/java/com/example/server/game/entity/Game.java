@@ -37,6 +37,10 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность игры, создаваемой организатором.
+ * Хранит параметры игры, статусы и связанные игровые объекты.
+ */
 public class Game {
 
     @Id
@@ -100,6 +104,9 @@ public class Game {
     private Set<GameTeamSession> sessions = new HashSet<>();
 
     @PreUpdate
+    /**
+     * Обновляет техническое поле времени изменения записи.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

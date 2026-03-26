@@ -37,6 +37,10 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность маршрута команды в игре.
+ * Определяет индивидуальную цепочку заданий для конкретной команды.
+ */
 public class TeamGameRoute {
 
     @Id
@@ -67,6 +71,9 @@ public class TeamGameRoute {
     private Set<GameTeamSession> sessions = new HashSet<>();
 
     @PreUpdate
+    /**
+     * Обновляет время последнего изменения маршрута.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

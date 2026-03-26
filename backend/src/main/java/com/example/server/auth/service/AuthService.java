@@ -19,12 +19,21 @@ import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Сервис входа в систему и получения данных текущего пользователя.
+ */
 public class AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
     private final UserRepository userRepository;
 
+    /**
+     * Аутентифицирует пользователя по email и паролю и выпускает JWT access token.
+     *
+     * @param request данные для входа
+     * @return ответ с токеном и данными пользователя
+     */
     public AuthResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
@@ -46,6 +55,12 @@ public class AuthService {
         );
     }
 
+    /**
+     * Возвращает профиль пользователя по email из security context.
+     *
+     * @param email email текущего пользователя
+     * @return DTO профиля пользователя
+     */
     public CurrentUserResponse getCurrentUser(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
@@ -60,6 +75,12 @@ public class AuthService {
         );
     }
 
+    /**
+     * Извлекает роль пользователя из списка authorities Spring Security.
+     *
+     * @param user пользователь из authentication principal
+     * @return роль без префикса {@code ROLE_}
+     */
     private String extractRole(UserDetails user) {
         return user.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)

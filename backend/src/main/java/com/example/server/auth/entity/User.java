@@ -17,6 +17,10 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность пользователя платформы.
+ * Хранит учетные данные, роль и флаги доступа к системе.
+ */
 public class User {
 
     @Id

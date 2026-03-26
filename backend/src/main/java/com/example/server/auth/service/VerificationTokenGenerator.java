@@ -6,10 +6,18 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 @Component
+/**
+ * Генератор криптографически стойких токенов для подтверждения email.
+ */
 public class VerificationTokenGenerator {
 
     private final SecureRandom secureRandom = new SecureRandom();
 
+    /**
+     * Генерирует URL-safe токен без padding.
+     *
+     * @return строковое представление токена
+     */
     public String generate() {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);

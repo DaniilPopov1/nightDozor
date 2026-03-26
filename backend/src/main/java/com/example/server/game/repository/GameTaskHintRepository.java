@@ -5,6 +5,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
+/**
+ * Репозиторий для работы с подсказками заданий.
+ */
 public interface GameTaskHintRepository extends JpaRepository<GameTaskHint, Long> {
+    /**
+     * Возвращает подсказки задания в порядке показа.
+     *
+     * @param taskId идентификатор задания
+     * @return список подсказок
+     */
     List<GameTaskHint> findAllByTaskIdOrderByOrderIndexAsc(Long taskId);
 }

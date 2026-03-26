@@ -33,6 +33,9 @@ import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Сервис бизнес-логики команд, членства и заявок на вступление.
+ */
 public class TeamService {
 
     private static final String INVITE_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -43,6 +46,13 @@ public class TeamService {
     private final UserRepository userRepository;
 
     @Transactional
+    /**
+     * Создает новую команду и автоматически добавляет создателя как капитана.
+     *
+     * @param email email текущего пользователя
+     * @param request данные для создания команды
+     * @return созданная команда
+     */
     public TeamResponse createTeam(String email, CreateTeamRequest request) {
         User user = getUserByEmail(email);
         validateCanCreateTeam(user);
@@ -68,6 +78,13 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Добавляет пользователя в команду по invite-коду.
+     *
+     * @param email email текущего пользователя
+     * @param request запрос с invite-кодом
+     * @return данные команды после вступления
+     */
     public TeamResponse joinTeamByCode(String email, JoinTeamByCodeRequest request) {
         User user = getUserByEmail(email);
         validateCanJoinTeam(user);
@@ -95,6 +112,13 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Создает заявку на вступление пользователя в команду.
+     *
+     * @param email email текущего пользователя
+     * @param teamId идентификатор команды
+     * @return созданная заявка
+     */
     public TeamJoinRequestResponse createJoinRequest(String email, Long teamId) {
         User user = getUserByEmail(email);
         validateCanRequestToJoinTeam(user);
@@ -131,6 +155,12 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Отменяет pending-заявку пользователя на вступление в команду.
+     *
+     * @param email email текущего пользователя
+     * @param teamId идентификатор команды
+     */
     public void cancelJoinRequest(String email, Long teamId) {
         User user = getUserByEmail(email);
 
@@ -147,6 +177,14 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Подтверждает заявку пользователя на вступление в команду.
+     *
+     * @param captainEmail email капитана команды
+     * @param teamId идентификатор команды
+     * @param userId идентификатор пользователя-заявителя
+     * @return результат обработки заявки
+     */
     public TeamJoinRequestDecisionResponse approveJoinRequest(String captainEmail, Long teamId, Long userId) {
         resolveCaptainMembership(captainEmail, teamId);
         TeamMembership membership = getPendingMembership(teamId, userId);
@@ -163,6 +201,14 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Отклоняет заявку пользователя на вступление в команду.
+     *
+     * @param captainEmail email капитана команды
+     * @param teamId идентификатор команды
+     * @param userId идентификатор пользователя-заявителя
+     * @return результат обработки заявки
+     */
     public TeamJoinRequestDecisionResponse rejectJoinRequest(String captainEmail, Long teamId, Long userId) {
         resolveCaptainMembership(captainEmail, teamId);
         TeamMembership membership = getPendingMembership(teamId, userId);
@@ -175,6 +221,13 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Исключает активного участника из команды.
+     *
+     * @param captainEmail email капитана команды
+     * @param teamId идентификатор команды
+     * @param userId идентификатор исключаемого участника
+     */
     public void removeMember(String captainEmail, Long teamId, Long userId) {
         TeamMembership captainMembership = resolveCaptainMembership(captainEmail, teamId);
 
@@ -199,6 +252,14 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Передает роль капитана другому активному участнику команды.
+     *
+     * @param currentCaptainEmail email текущего капитана
+     * @param teamId идентификатор команды
+     * @param newCaptainUserId идентификатор нового капитана
+     * @return обновленные данные команды
+     */
     public TeamResponse transferCaptainRole(String currentCaptainEmail, Long teamId, Long newCaptainUserId) {
         TeamMembership currentCaptainMembership = resolveCaptainMembership(currentCaptainEmail, teamId);
 
@@ -227,6 +288,14 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Обновляет название, город и при необходимости invite-код команды.
+     *
+     * @param captainEmail email капитана команды
+     * @param teamId идентификатор команды
+     * @param request новые данные команды
+     * @return обновленные данные команды
+     */
     public TeamResponse updateTeam(String captainEmail, Long teamId, UpdateTeamRequest request) {
         TeamMembership captainMembership = resolveCaptainMembership(captainEmail, teamId);
         Team team = captainMembership.getTeam();
@@ -243,6 +312,12 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Удаляет команду и все связанные записи членства.
+     *
+     * @param captainEmail email капитана команды
+     * @param teamId идентификатор команды
+     */
     public void disbandTeam(String captainEmail, Long teamId) {
         TeamMembership captainMembership = resolveCaptainMembership(captainEmail, teamId);
         Team team = captainMembership.getTeam();
@@ -253,6 +328,12 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает команду текущего пользователя.
+     *
+     * @param email email пользователя
+     * @return данные команды пользователя
+     */
     public TeamResponse getCurrentTeam(String email) {
         User user = getUserByEmail(email);
 
@@ -266,6 +347,12 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает список команд с опциональной фильтрацией по городу.
+     *
+     * @param city город для фильтрации
+     * @return список команд
+     */
     public List<TeamListItemResponse> getTeams(String city) {
         List<Team> teams = city == null || city.isBlank()
                 ? teamRepository.findAllByOrderByCreatedAtDesc()
@@ -277,6 +364,12 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает подробную информацию о команде по идентификатору.
+     *
+     * @param teamId идентификатор команды
+     * @return данные команды
+     */
     public TeamResponse getTeamById(Long teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new NotFoundException("Команда не найдена"));
@@ -285,6 +378,12 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает список входящих pending-заявок в команду текущего капитана.
+     *
+     * @param captainEmail email капитана команды
+     * @return список входящих заявок
+     */
     public List<IncomingJoinRequestResponse> getIncomingJoinRequests(String captainEmail) {
         TeamMembership captainMembership = resolveCaptainMembership(captainEmail);
 
@@ -297,6 +396,12 @@ public class TeamService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Возвращает список исходящих pending-заявок текущего пользователя.
+     *
+     * @param userEmail email пользователя
+     * @return список исходящих заявок
+     */
     public List<OutgoingJoinRequestResponse> getOutgoingJoinRequests(String userEmail) {
         User user = getUserByEmail(userEmail);
 
@@ -306,6 +411,11 @@ public class TeamService {
     }
 
     @Transactional
+    /**
+     * Позволяет активному участнику покинуть свою команду.
+     *
+     * @param email email пользователя
+     */
     public void leaveTeam(String email) {
         User user = getUserByEmail(email);
         TeamMembership membership = teamMembershipRepository.findByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)
@@ -320,6 +430,11 @@ public class TeamService {
         teamMembershipRepository.save(membership);
     }
 
+    /**
+     * Проверяет, что пользователь может создать новую команду.
+     *
+     * @param user пользователь, инициирующий создание команды
+     */
     private void validateCanCreateTeam(User user) {
         if (user.getRole() != Role.PARTICIPANT) {
             throw new BadRequestException("Создавать команды могут только участники");
@@ -328,6 +443,11 @@ public class TeamService {
         validateNoBlockingMemberships(user);
     }
 
+    /**
+     * Проверяет, что пользователь может вступить в команду по коду приглашения.
+     *
+     * @param user пользователь, инициирующий вступление
+     */
     private void validateCanJoinTeam(User user) {
         if (user.getRole() != Role.PARTICIPANT) {
             throw new BadRequestException("Вступать в команды могут только участники");
@@ -336,6 +456,11 @@ public class TeamService {
         validateNoBlockingMemberships(user);
     }
 
+    /**
+     * Проверяет, что пользователь может отправить заявку на вступление в команду.
+     *
+     * @param user пользователь, отправляющий заявку
+     */
     private void validateCanRequestToJoinTeam(User user) {
         if (user.getRole() != Role.PARTICIPANT) {
             throw new BadRequestException("Отправлять заявки в команды могут только участники");
@@ -344,6 +469,11 @@ public class TeamService {
         validateNoBlockingMemberships(user);
     }
 
+    /**
+     * Проверяет, что у пользователя нет активного членства или необработанных заявок.
+     *
+     * @param user пользователь для проверки
+     */
     private void validateNoBlockingMemberships(User user) {
         if (teamMembershipRepository.existsByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)) {
             throw new ConflictException("Пользователь уже состоит в команде");
@@ -354,6 +484,13 @@ public class TeamService {
         }
     }
 
+    /**
+     * Находит и валидирует членство капитана в конкретной команде.
+     *
+     * @param captainEmail email капитана
+     * @param teamId идентификатор команды
+     * @return активное членство капитана
+     */
     private TeamMembership resolveCaptainMembership(String captainEmail, Long teamId) {
         User captain = getUserByEmail(captainEmail);
 
@@ -368,6 +505,12 @@ public class TeamService {
         return membership;
     }
 
+    /**
+     * Находит и валидирует активное капитанское членство пользователя.
+     *
+     * @param captainEmail email капитана
+     * @return активное членство капитана
+     */
     private TeamMembership resolveCaptainMembership(String captainEmail) {
         User captain = getUserByEmail(captainEmail);
 
@@ -381,6 +524,13 @@ public class TeamService {
         return membership;
     }
 
+    /**
+     * Возвращает заявку пользователя в статусе PENDING для указанной команды.
+     *
+     * @param teamId идентификатор команды
+     * @param userId идентификатор пользователя
+     * @return pending-членство
+     */
     private TeamMembership getPendingMembership(Long teamId, Long userId) {
         TeamMembership membership = teamMembershipRepository.findByTeamIdAndUserId(teamId, userId)
                 .orElseThrow(() -> new NotFoundException("Заявка не найдена"));
@@ -392,11 +542,23 @@ public class TeamService {
         return membership;
     }
 
+    /**
+     * Загружает пользователя по email.
+     *
+     * @param email email пользователя
+     * @return найденный пользователь
+     */
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
     }
 
+    /**
+     * Собирает DTO полной информации о команде.
+     *
+     * @param team команда
+     * @return DTO команды
+     */
     private TeamResponse buildTeamResponse(Team team) {
         List<TeamMemberResponse> members = teamMembershipRepository.findAllByTeamIdAndStatus(
                         team.getId(),
@@ -417,6 +579,12 @@ public class TeamService {
         );
     }
 
+    /**
+     * Собирает DTO участника команды.
+     *
+     * @param membership членство пользователя в команде
+     * @return DTO участника
+     */
     private TeamMemberResponse buildTeamMemberResponse(TeamMembership membership) {
         return new TeamMemberResponse(
                 membership.getUser().getId(),
@@ -427,6 +595,12 @@ public class TeamService {
         );
     }
 
+    /**
+     * Собирает DTO результата обработки заявки на вступление.
+     *
+     * @param membership заявка на вступление
+     * @return DTO результата обработки
+     */
     private TeamJoinRequestDecisionResponse buildJoinRequestDecisionResponse(TeamMembership membership) {
         return new TeamJoinRequestDecisionResponse(
                 membership.getTeam().getId(),
@@ -438,6 +612,12 @@ public class TeamService {
         );
     }
 
+    /**
+     * Собирает DTO входящей заявки для капитана команды.
+     *
+     * @param membership pending-заявка пользователя
+     * @return DTO входящей заявки
+     */
     private IncomingJoinRequestResponse buildIncomingJoinRequestResponse(TeamMembership membership) {
         return new IncomingJoinRequestResponse(
                 membership.getTeam().getId(),
@@ -448,6 +628,12 @@ public class TeamService {
         );
     }
 
+    /**
+     * Собирает DTO исходящей заявки пользователя в команду.
+     *
+     * @param membership pending-заявка пользователя
+     * @return DTO исходящей заявки
+     */
     private OutgoingJoinRequestResponse buildOutgoingJoinRequestResponse(TeamMembership membership) {
         return new OutgoingJoinRequestResponse(
                 membership.getTeam().getId(),
@@ -459,6 +645,12 @@ public class TeamService {
         );
     }
 
+    /**
+     * Собирает компактное представление команды для списка.
+     *
+     * @param team команда
+     * @return DTO элемента списка команд
+     */
     private TeamListItemResponse buildTeamListItemResponse(Team team) {
         int activeMembersCount = teamMembershipRepository.findAllByTeamIdAndStatus(
                         team.getId(),
@@ -476,6 +668,11 @@ public class TeamService {
         );
     }
 
+    /**
+     * Генерирует уникальный invite-код команды.
+     *
+     * @return уникальный invite-код
+     */
     private String generateUniqueInviteCode() {
         SecureRandom random = new SecureRandom();
         String inviteCode;
@@ -487,6 +684,12 @@ public class TeamService {
         return inviteCode;
     }
 
+    /**
+     * Генерирует invite-код заданной длины из допустимого алфавита.
+     *
+     * @param random генератор случайных чисел
+     * @return сгенерированный invite-код
+     */
     private String generateInviteCode(SecureRandom random) {
         StringBuilder builder = new StringBuilder(INVITE_CODE_LENGTH);
         for (int i = 0; i < INVITE_CODE_LENGTH; i++) {
@@ -496,6 +699,12 @@ public class TeamService {
         return builder.toString();
     }
 
+    /**
+     * Нормализует invite-код перед поиском команды.
+     *
+     * @param inviteCode исходное значение invite-кода
+     * @return invite-код в нормализованном виде
+     */
     private String normalizeInviteCode(String inviteCode) {
         return inviteCode.trim().toUpperCase(Locale.ROOT);
     }

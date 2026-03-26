@@ -16,6 +16,9 @@ import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Сервис подтверждения email и перевыпуска токенов подтверждения.
+ */
 public class VerificationService {
 
     private final VerificationTokenRepository verificationTokenRepository;
@@ -24,6 +27,11 @@ public class VerificationService {
     private final EmailService emailService;
 
     @Transactional
+    /**
+     * Подтверждает email по токену, если он существует, не использован и не истек.
+     *
+     * @param rawToken токен подтверждения
+     */
     public void verify(String rawToken) {
         VerificationToken token = verificationTokenRepository.findByToken(rawToken)
                 .orElseThrow(() -> new BadRequestException("Неверный токен подтверждения"));
@@ -45,6 +53,11 @@ public class VerificationService {
     }
 
     @Transactional
+    /**
+     * Удаляет старые токены пользователя и отправляет новый токен подтверждения.
+     *
+     * @param emailRaw email пользователя
+     */
     public void resendVerification(String emailRaw) {
         String email = emailRaw.trim().toLowerCase(Locale.ROOT);
 

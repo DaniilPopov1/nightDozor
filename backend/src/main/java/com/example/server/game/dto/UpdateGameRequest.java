@@ -7,6 +7,19 @@ import jakarta.validation.constraints.Size;
 
 import java.time.Instant;
 
+/**
+ * DTO запроса на обновление игры.
+ *
+ * @param title название игры
+ * @param description описание игры
+ * @param city город проведения игры
+ * @param minTeamSize минимальный размер команды
+ * @param maxTeamSize максимальный размер команды
+ * @param taskFailurePenaltyMinutes базовый штраф игры
+ * @param registrationStartsAt дата начала регистрации
+ * @param registrationEndsAt дата окончания регистрации
+ * @param startsAt дата и время старта игры
+ */
 public record UpdateGameRequest(
         @NotBlank @Size(max = 150) String title,
         @NotBlank @Size(max = 4000) String description,

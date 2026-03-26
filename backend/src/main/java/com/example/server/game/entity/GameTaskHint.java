@@ -32,6 +32,10 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность подсказки задания.
+ * Хранит текст подсказки и задержку ее открытия.
+ */
 public class GameTaskHint {
 
     @Id
@@ -58,6 +62,9 @@ public class GameTaskHint {
     private Instant updatedAt = Instant.now();
 
     @PreUpdate
+    /**
+     * Обновляет время последнего изменения подсказки.
+     */
     void onUpdate() {
         updatedAt = Instant.now();
     }

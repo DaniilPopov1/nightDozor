@@ -25,11 +25,21 @@ import java.util.Map;
 
 @Configuration
 @RequiredArgsConstructor
+/**
+ * Конфигурация Spring Security для JWT-аутентификации и защиты API.
+ */
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Bean
+    /**
+     * Настраивает цепочку фильтров безопасности, публичные auth-endpoint'ы и stateless-сессии.
+     *
+     * @param http объект конфигурации HTTP-безопасности
+     * @return настроенная цепочка фильтров
+     * @throws Exception если при сборке конфигурации возникает ошибка
+     */
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
@@ -74,6 +84,12 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /**
+     * Преобразует исключение аутентификации в понятное сообщение для API-ответа.
+     *
+     * @param ex исключение аутентификации
+     * @return текст ошибки для клиента
+     */
     private String resolveAuthMessage(AuthenticationException ex) {
         if (ex instanceof DisabledException) {
             return "Подтвердите email перед входом";
@@ -88,11 +104,23 @@ public class SecurityConfig {
     }
 
     @Bean
+    /**
+     * Создает encoder для безопасного хеширования паролей.
+     *
+     * @return экземпляр BCrypt password encoder
+     */
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
     @Bean
+    /**
+     * Предоставляет {@link AuthenticationManager}, собранный Spring Security.
+     *
+     * @param configuration объект конфигурации аутентификации
+     * @return authentication manager
+     * @throws Exception если manager не может быть создан
+     */
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration)
             throws Exception {
         return configuration.getAuthenticationManager();

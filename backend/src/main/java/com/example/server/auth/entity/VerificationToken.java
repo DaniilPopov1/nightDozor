@@ -12,6 +12,10 @@ import java.time.Instant;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность токена подтверждения email.
+ * Используется для активации аккаунта после регистрации.
+ */
 public class VerificationToken {
 
     @Id
@@ -34,10 +38,20 @@ public class VerificationToken {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
+    /**
+     * Проверяет, истек ли срок действия токена.
+     *
+     * @return {@code true}, если токен просрочен
+     */
     public boolean isExpired() {
         return Instant.now().isAfter(expiresAt);
     }
 
+    /**
+     * Проверяет, был ли токен уже использован.
+     *
+     * @return {@code true}, если токен уже применен
+     */
     public boolean isUsed() {
         return usedAt != null;
     }

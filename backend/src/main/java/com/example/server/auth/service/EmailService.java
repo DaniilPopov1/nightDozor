@@ -8,6 +8,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+/**
+ * Сервис отправки email-уведомлений, связанных с регистрацией и подтверждением аккаунта.
+ */
 public class EmailService {
 
     private final JavaMailSender mailSender;
@@ -18,6 +21,12 @@ public class EmailService {
     @Value("${app.frontend.base-url}")
     private String frontendBaseUrl;
 
+    /**
+     * Отправляет письмо с ссылкой для подтверждения email.
+     *
+     * @param to email получателя
+     * @param token токен подтверждения
+     */
     public void sendVerificationEmail(String to, String token) {
         String verificationLink = frontendBaseUrl + "/verify-email?token=" + token;
 

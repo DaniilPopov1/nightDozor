@@ -24,6 +24,10 @@ import java.util.Set;
 @Getter
 @Setter
 @NoArgsConstructor
+/**
+ * Сущность команды участников игры.
+ * Хранит основные данные команды, капитана и связанные игровые сущности.
+ */
 public class Team {
 
     @Id
