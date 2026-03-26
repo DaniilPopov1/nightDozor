@@ -55,5 +55,15 @@ build/
 !**/src/main/**/build/ 
 !**/src/test/**/build/
 
+# Frontend
+web/node_modules/
+web/dist/
+web/dist-ssr/
+web/.env.local
+web/.env.development.local
+web/.env.test.local
+web/.env.production.local
+
+
 ### Mac OS ### 
 .DS_Store
