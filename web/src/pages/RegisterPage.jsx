@@ -1,10 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useDispatch, useSelector } from 'react-redux'
-import {
-  clearAuthFeedback,
-  registerUser,
-} from '../features/auth/authSlice.js'
+import { useSelector } from 'react-redux'
+import { useRegisterMutation } from '../features/auth/authApi.js'
 
 const initialFormState = {
   email: '',
@@ -14,17 +11,19 @@ const initialFormState = {
 }
 
 export function RegisterPage() {
-  const dispatch = useDispatch()
   const navigate = useNavigate()
-  const { registerError, registerMessage, registerStatus } = useSelector(
-    (state) => state.auth,
-  )
+  const token = useSelector((state) => state.auth.token)
+  const [registerUser, { isLoading: isSubmitting }] = useRegisterMutation()
   const [formData, setFormData] = useState(initialFormState)
   const [validationError, setValidationError] = useState('')
+  const [registerError, setRegisterError] = useState('')
+  const [registerMessage, setRegisterMessage] = useState('')
 
   useEffect(() => {
-    dispatch(clearAuthFeedback())
-  }, [dispatch])
+    if (token) {
+      navigate('/profile', { replace: true })
+    }
+  }, [navigate, token])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -54,6 +53,8 @@ export function RegisterPage() {
     }
 
     setValidationError('')
+    setRegisterError('')
+    setRegisterMessage('')
 
     const payload = {
       email: formData.email.trim(),
@@ -61,15 +62,15 @@ export function RegisterPage() {
       role: formData.role,
     }
 
-    const resultAction = await dispatch(registerUser(payload))
-
-    if (registerUser.fulfilled.match(resultAction)) {
+    try {
+      const response = await registerUser(payload).unwrap()
+      setRegisterMessage(response.message || 'Регистрация выполнена')
       setFormData(initialFormState)
       window.setTimeout(() => navigate('/login'), 1200)
+    } catch (requestError) {
+      setRegisterError(requestError?.message || 'Не удалось выполнить регистрацию')
     }
   }
-
-  const isSubmitting = registerStatus === 'loading'
 
   return (
     <section className="auth-card">

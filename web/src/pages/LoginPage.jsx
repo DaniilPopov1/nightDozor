@@ -1,25 +1,24 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
-import { clearAuthFeedback, loginUser } from '../features/auth/authSlice.js'
+import { useLoginMutation } from '../features/auth/authApi.js'
+import { setCredentials } from '../features/auth/authSlice.js'
 
 export function LoginPage() {
   const dispatch = useDispatch()
   const navigate = useNavigate()
-  const { token, loginError, loginStatus } = useSelector((state) => state.auth)
+  const { token } = useSelector((state) => state.auth)
+  const [login, { isLoading: isSubmitting }] = useLoginMutation()
   const [formData, setFormData] = useState({
     email: '',
     password: '',
   })
   const [validationError, setValidationError] = useState('')
-
-  useEffect(() => {
-    dispatch(clearAuthFeedback())
-  }, [dispatch])
+  const [loginError, setLoginError] = useState('')
 
   useEffect(() => {
     if (token) {
-      navigate('/', { replace: true })
+      navigate('/profile', { replace: true })
     }
   }, [navigate, token])
 
@@ -41,14 +40,16 @@ export function LoginPage() {
     }
 
     setValidationError('')
-    const resultAction = await dispatch(loginUser(formData))
+    setLoginError('')
 
-    if (loginUser.fulfilled.match(resultAction)) {
-      navigate('/', { replace: true })
+    try {
+      const response = await login(formData).unwrap()
+      dispatch(setCredentials(response))
+      navigate('/profile', { replace: true })
+    } catch (requestError) {
+      setLoginError(requestError?.message || 'Не удалось выполнить вход')
     }
   }
-
-  const isSubmitting = loginStatus === 'loading'
 
   return (
     <section className="auth-card">
