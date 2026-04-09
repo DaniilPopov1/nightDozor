@@ -81,8 +81,8 @@ export function TeamPage() {
         <p className="page-card__eyebrow">Команда</p>
         <h1>Управление командой</h1>
         <p className="page-card__text">
-          Здесь можно посмотреть состав команды, код приглашения и текущие заявки
-          на вступление.
+          Здесь можно посмотреть состав команды, код приглашения и заявки на вступление.
+          Капитан управляет участниками, а обычный игрок видит актуальное состояние своей команды.
         </p>
       </div>
 
@@ -267,6 +267,15 @@ export function TeamPage() {
                   </article>
                 ))}
               </div>
+            </section>
+          ) : null}
+
+          {isCaptain && incomingRequests.length === 0 ? (
+            <section className="section-block">
+              <h2>Входящие заявки</h2>
+              <p className="page-note">
+                Сейчас нет новых заявок на вступление. Когда игроки отправят запрос, они появятся здесь.
+              </p>
             </section>
           ) : null}
         </div>

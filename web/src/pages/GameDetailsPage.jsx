@@ -115,8 +115,7 @@ export function GameDetailsPage() {
         <p className="page-card__eyebrow">Игра</p>
         <h1>{game?.title || 'Карточка игры'}</h1>
         <p className="page-card__text">
-          Пока детального публичного endpoint для одной игры на бэке нет, поэтому
-          страница показывает доступную информацию из общего списка игр и статуса заявки команды.
+          Здесь собрана основная информация об игре и статус участия твоей команды.
         </p>
       </div>
 
@@ -147,6 +146,10 @@ export function GameDetailsPage() {
               <div>
                 <dt>Старт игры</dt>
                 <dd>{formatDateTime(game.startsAt)}</dd>
+              </div>
+              <div>
+                <dt>Маршрутов в игре</dt>
+                <dd>{game.routeSlotsCount}</dd>
               </div>
               <div>
                 <dt>Начало регистрации</dt>
@@ -200,9 +203,17 @@ export function GameDetailsPage() {
                 </div>
               </dl>
             ) : (
-              <p className="page-note">
-                Чтобы подать заявку на игру, сначала создай команду или вступи в существующую.
-              </p>
+              <div className="cta-group">
+                <p className="page-note">
+                  Чтобы подать заявку на игру, сначала создай команду или вступи в существующую.
+                </p>
+                <Link className="button button--secondary" to="/teams/create">
+                  Создать команду
+                </Link>
+                <Link className="button button--secondary" to="/teams/join">
+                  Найти команду
+                </Link>
+              </div>
             )}
 
             <div className="cta-group">
@@ -228,12 +239,6 @@ export function GameDetailsPage() {
                 >
                   {actionStatus === 'loading' ? 'Отменяем...' : 'Отменить заявку'}
                 </button>
-              ) : null}
-
-              {!team ? (
-                <Link className="button button--secondary" to="/teams/create">
-                  Создать команду
-                </Link>
               ) : null}
 
               {team && !isCaptain ? <span className="badge">Заявку подаёт только капитан</span> : null}

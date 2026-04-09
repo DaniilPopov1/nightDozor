@@ -93,6 +93,17 @@ export function OrganizerGameDetailsPage() {
     () => new Map(routes.map((route) => [String(route.slotNumber), route])),
     [routes],
   )
+  const assignedTaskIds = useMemo(
+    () =>
+      new Set(
+        routes.flatMap((route) => route.items.map((item) => String(item.taskId))),
+      ),
+    [routes],
+  )
+  const availableRouteTasks = useMemo(
+    () => tasks.filter((task) => !assignedTaskIds.has(String(task.id))),
+    [assignedTaskIds, tasks],
+  )
   const gameForm = gameDraft || buildGameForm(game)
   const hasStartedByTime = game?.startsAt
     ? new Date(game.startsAt).getTime() <= pageOpenedAt
@@ -776,6 +787,9 @@ export function OrganizerGameDetailsPage() {
               Организатор заранее готовит маршруты по слотам. Когда заявка команды
               подтверждается, ей случайно назначается один из свободных маршрутов.
             </p>
+            <p className="section-block__hint">
+              Одно и то же задание можно включить только в один маршрут этой игры.
+            </p>
             {!canManageContent ? (
               <p className="page-note">
                 После старта, завершения или отмены игры создание и настройка маршрутов недоступны.
@@ -825,7 +839,7 @@ export function OrganizerGameDetailsPage() {
                     disabled={!canManageContent}
                   >
                     <option value="">Пока без задания</option>
-                    {tasks.map((task) => (
+                    {availableRouteTasks.map((task) => (
                       <option key={task.id} value={task.id}>
                         {task.orderIndex}. {task.title}
                       </option>

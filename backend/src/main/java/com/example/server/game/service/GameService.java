@@ -449,6 +449,10 @@ public class GameService {
             throw new ConflictException("Это задание уже добавлено в маршрут");
         }
 
+        if (teamGameRouteItemRepository.existsByTaskIdAndRouteGameId(task.getId(), gameId)) {
+            throw new ConflictException("Это задание уже используется в другом маршруте игры");
+        }
+
         TeamGameRouteItem routeItem = new TeamGameRouteItem();
         routeItem.setRoute(route);
         routeItem.setTask(task);

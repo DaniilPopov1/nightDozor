@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux'
 import './App.css'
 import { AuthLayout } from './components/AuthLayout.jsx'
 import { RequireAuth } from './components/RequireAuth.jsx'
+import { RequireCaptain } from './components/RequireCaptain.jsx'
 import { RequireRole } from './components/RequireRole.jsx'
 import { CreateTeamPage } from './pages/CreateTeamPage.jsx'
 import { GameDetailsPage } from './pages/GameDetailsPage.jsx'
@@ -75,7 +76,9 @@ function App() {
           path="/games"
           element={
             <RequireAuth>
-              <GamesPage />
+              <RequireCaptain>
+                <GamesPage />
+              </RequireCaptain>
             </RequireAuth>
           }
         />
@@ -83,7 +86,9 @@ function App() {
           path="/games/:gameId"
           element={
             <RequireAuth>
-              <GameDetailsPage />
+              <RequireCaptain>
+                <GameDetailsPage />
+              </RequireCaptain>
             </RequireAuth>
           }
         />

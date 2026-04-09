@@ -67,7 +67,7 @@ export function GamesPage() {
         <p className="page-card__eyebrow">Игры</p>
         <h1>Доступные игры</h1>
         <p className="page-card__text">
-          Выбирай игру по городу, смотри условия участия и отправляй заявку от имени команды.
+          Капитан может выбрать игру, проверить условия участия и отправить заявку от имени команды.
         </p>
       </div>
 
@@ -89,6 +89,19 @@ export function GamesPage() {
 
       {error ? <p className="form-message form-message--error">{error}</p> : null}
       {isGamesLoading ? <p className="page-note">Загрузка игр...</p> : null}
+      {submittedCity ? (
+        <p className="page-note">Показаны игры по фильтру: {submittedCity}</p>
+      ) : null}
+      {!isGamesLoading && games.length === 0 ? (
+        <section className="empty-state">
+          <h2>Подходящих игр пока нет</h2>
+          <p>
+            {submittedCity
+              ? 'По выбранному городу сейчас не найдено игр. Попробуй другой фильтр или сбрось поиск.'
+              : 'Организаторы пока не опубликовали доступные игры.'}
+          </p>
+        </section>
+      ) : null}
 
       <div className="list-grid">
         {games.map((game) => {
@@ -102,6 +115,7 @@ export function GamesPage() {
               <p>
                 Размер команды: {game.minTeamSize}-{game.maxTeamSize}
               </p>
+              <p>Маршрутов в игре: {game.routeSlotsCount}</p>
               <p>Старт: {formatDateTime(game.startsAt)}</p>
               <p>
                 Заявка: {registration ? formatRegistrationStatus(registration.registrationStatus) : 'Не подана'}
@@ -119,6 +133,9 @@ export function GamesPage() {
                 ) : null}
                 {registration?.registrationStatus === 'REJECTED' ? (
                   <span className="badge badge--danger">Заявка отклонена</span>
+                ) : null}
+                {registration?.registrationStatus === 'PENDING' ? (
+                  <span className="badge">Ожидает решения</span>
                 ) : null}
               </div>
             </article>

@@ -6,6 +6,7 @@ import {
   useGetTeamsQuery,
   useJoinTeamByCodeMutation,
 } from '../features/team/teamApi.js'
+import { formatMembershipStatus } from '../shared/lib/formatters.js'
 
 export function JoinTeamPage() {
   const navigate = useNavigate()
@@ -82,9 +83,9 @@ export function JoinTeamPage() {
     <section className="page-card">
       <div className="page-card__header">
         <p className="page-card__eyebrow">Команда</p>
-        <h1>Вступление в команду</h1>
+        <h1>Найти команду</h1>
         <p className="page-card__text">
-          Можно войти по коду приглашения или отправить запрос в подходящую команду из списка.
+          Можно вступить по коду приглашения или отправить запрос в подходящую команду из списка.
         </p>
       </div>
 
@@ -132,6 +133,14 @@ export function JoinTeamPage() {
           </form>
 
           {isTeamsLoading ? <p className="page-note">Загрузка списка команд...</p> : null}
+          {submittedCity ? <p className="page-note">Город поиска: {submittedCity}</p> : null}
+          {!isTeamsLoading && teams.length === 0 ? (
+            <p className="page-note">
+              {submittedCity
+                ? 'В этом городе пока нет доступных команд.'
+                : 'Команды пока не найдены. Попробуй указать город для поиска.'}
+            </p>
+          ) : null}
 
           <div className="list-grid">
             {teams.map((team) => (
@@ -162,6 +171,21 @@ export function JoinTeamPage() {
           </div>
         </section>
       </div>
+
+      {outgoingRequests.length > 0 ? (
+        <section className="section-block">
+          <h2>Мои отправленные заявки</h2>
+          <div className="list-grid">
+            {outgoingRequests.map((request) => (
+              <article key={request.teamId} className="list-card">
+                <h3>{request.teamName}</h3>
+                <p>Город: {request.city}</p>
+                <p>Статус: {formatMembershipStatus(request.status)}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
     </section>
   )
 }

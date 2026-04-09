@@ -16,4 +16,13 @@ public interface TeamGameRouteItemRepository extends JpaRepository<TeamGameRoute
      * @return список элементов маршрута
      */
     List<TeamGameRouteItem> findAllByRouteIdOrderByOrderIndexAsc(Long routeId);
+
+    /**
+     * Проверяет, используется ли задание хотя бы в одном маршруте конкретной игры.
+     *
+     * @param taskId идентификатор задания
+     * @param gameId идентификатор игры
+     * @return {@code true}, если задание уже включено в один из маршрутов игры
+     */
+    boolean existsByTaskIdAndRouteGameId(Long taskId, Long gameId);
 }

@@ -12,6 +12,7 @@ export function AppHeader() {
     skip: isOrganizer,
   })
   const hasTeam = Boolean(currentTeam)
+  const isCaptain = Boolean(currentTeam && user?.id && currentTeam.captainId === user.id)
 
   const navItems = isOrganizer
     ? [
@@ -24,7 +25,7 @@ export function AppHeader() {
         hasTeam
           ? { to: '/team', label: 'Моя команда' }
           : { to: '/teams/join', label: 'Найти команду' },
-        { to: '/games', label: 'Игры' },
+        ...(isCaptain ? [{ to: '/games', label: 'Игры' }] : []),
       ]
 
   return (
