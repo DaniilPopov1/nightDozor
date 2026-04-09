@@ -19,7 +19,6 @@ import com.example.server.game.dto.SubmitTaskKeyResponse;
 import com.example.server.game.dto.TeamGameRouteResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
-import com.example.server.game.dto.UpdateGameStatusRequest;
 import com.example.server.game.service.GameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -136,6 +135,36 @@ public class GameController {
         return ResponseEntity.ok(gameService.getOrganizerGameById(userDetails.getUsername(), gameId));
     }
 
+    @GetMapping("/my/{gameId}/tasks")
+    /**
+     * Возвращает список заданий выбранной игры текущего организатора.
+     *
+     * @param userDetails текущий организатор
+     * @param gameId идентификатор игры
+     * @return список заданий игры
+     */
+    public ResponseEntity<List<GameTaskResponse>> getMyGameTasks(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.getOrganizerGameTasks(userDetails.getUsername(), gameId));
+    }
+
+    @GetMapping("/my/{gameId}/routes")
+    /**
+     * Возвращает список маршрутов команд для выбранной игры текущего организатора.
+     *
+     * @param userDetails текущий организатор
+     * @param gameId идентификатор игры
+     * @return список маршрутов игры
+     */
+    public ResponseEntity<List<TeamGameRouteResponse>> getMyGameRoutes(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.getOrganizerGameRoutes(userDetails.getUsername(), gameId));
+    }
+
     @PutMapping("/my/{gameId}")
     /**
      * Обновляет параметры игры до ее старта.
@@ -155,19 +184,17 @@ public class GameController {
 
     @PostMapping("/my/{gameId}/status")
     /**
-     * Меняет статус игры в рамках допустимого жизненного цикла.
+     * Отменяет игру вручную.
      *
      * @param userDetails текущий организатор
      * @param gameId идентификатор игры
-     * @param request новый статус игры
      * @return обновленная игра
      */
     public ResponseEntity<GameResponse> updateMyGameStatus(
             @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long gameId,
-            @Valid @RequestBody UpdateGameStatusRequest request
+            @PathVariable Long gameId
     ) {
-        return ResponseEntity.ok(gameService.updateGameStatus(userDetails.getUsername(), gameId, request));
+        return ResponseEntity.ok(gameService.cancelGame(userDetails.getUsername(), gameId));
     }
 
     @PostMapping("/my/{gameId}/start")

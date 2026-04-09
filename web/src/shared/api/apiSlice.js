@@ -46,6 +46,11 @@ export const apiSlice = createApi({
     'OutgoingJoinRequests',
     'Games',
     'MyTeamRegistrations',
+    'OrganizerGames',
+    'OrganizerGame',
+    'IncomingRegistrations',
+    'OrganizerTasks',
+    'OrganizerRoutes',
   ],
   endpoints: () => ({}),
 })

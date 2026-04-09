@@ -69,6 +69,9 @@ public class Game {
     @Column(name = "task_failure_penalty_minutes", nullable = false)
     private Integer taskFailurePenaltyMinutes;
 
+    @Column(name = "route_slots_count", nullable = false)
+    private Integer routeSlotsCount;
+
     @Column(name = "registration_starts_at")
     private Instant registrationStartsAt;
 

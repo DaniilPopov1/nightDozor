@@ -13,6 +13,7 @@ import java.time.Instant;
  * @param status статус игры
  * @param minTeamSize минимальный размер команды
  * @param maxTeamSize максимальный размер команды
+ * @param routeSlotsCount количество маршрутов игры
  * @param registrationStartsAt дата начала регистрации
  * @param registrationEndsAt дата окончания регистрации
  * @param startsAt дата старта игры
@@ -25,6 +26,7 @@ public record GameListItemResponse(
         GameStatus status,
         Integer minTeamSize,
         Integer maxTeamSize,
+        Integer routeSlotsCount,
         Instant registrationStartsAt,
         Instant registrationEndsAt,
         Instant startsAt,

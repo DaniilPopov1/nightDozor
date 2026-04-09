@@ -7,16 +7,25 @@ import { apiSlice } from '../shared/api/apiSlice.js'
 export function AppHeader() {
   const dispatch = useDispatch()
   const user = useSelector((state) => state.auth.user)
-  const { data: currentTeam } = useGetCurrentTeamQuery()
+  const isOrganizer = user?.role === 'ORGANIZER'
+  const { data: currentTeam } = useGetCurrentTeamQuery(undefined, {
+    skip: isOrganizer,
+  })
   const hasTeam = Boolean(currentTeam)
 
-  const navItems = [
-    { to: '/profile', label: 'Профиль' },
-    hasTeam
-      ? { to: '/team', label: 'Моя команда' }
-      : { to: '/teams/join', label: 'Найти команду' },
-    { to: '/games', label: 'Игры' },
-  ]
+  const navItems = isOrganizer
+    ? [
+        { to: '/profile', label: 'Профиль' },
+        { to: '/organizer/games', label: 'Мои игры' },
+        { to: '/organizer/games/create', label: 'Создать игру' },
+      ]
+    : [
+        { to: '/profile', label: 'Профиль' },
+        hasTeam
+          ? { to: '/team', label: 'Моя команда' }
+          : { to: '/teams/join', label: 'Найти команду' },
+        { to: '/games', label: 'Игры' },
+      ]
 
   return (
     <header className="app-header">

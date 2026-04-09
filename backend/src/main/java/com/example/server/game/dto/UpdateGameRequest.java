@@ -16,6 +16,7 @@ import java.time.Instant;
  * @param minTeamSize минимальный размер команды
  * @param maxTeamSize максимальный размер команды
  * @param taskFailurePenaltyMinutes базовый штраф игры
+ * @param routeSlotsCount количество заранее подготавливаемых маршрутов
  * @param registrationStartsAt дата начала регистрации
  * @param registrationEndsAt дата окончания регистрации
  * @param startsAt дата и время старта игры
@@ -27,6 +28,7 @@ public record UpdateGameRequest(
         @NotNull @Min(1) Integer minTeamSize,
         @NotNull @Min(1) Integer maxTeamSize,
         @NotNull @Min(0) Integer taskFailurePenaltyMinutes,
+        @NotNull @Min(1) Integer routeSlotsCount,
         Instant registrationStartsAt,
         Instant registrationEndsAt,
         @NotNull Instant startsAt

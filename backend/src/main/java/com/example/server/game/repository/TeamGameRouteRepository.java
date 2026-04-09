@@ -7,17 +7,26 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Репозиторий для работы с маршрутами команд внутри игр.
+ * Репозиторий для работы с маршрутами слотов внутри игр.
  */
 public interface TeamGameRouteRepository extends JpaRepository<TeamGameRoute, Long> {
     /**
-     * Ищет маршрут команды в конкретной игре.
+     * Ищет маршрут, уже назначенный конкретной команде в игре.
      *
      * @param gameId идентификатор игры
      * @param teamId идентификатор команды
      * @return найденный маршрут
      */
-    Optional<TeamGameRoute> findByGameIdAndTeamId(Long gameId, Long teamId);
+    Optional<TeamGameRoute> findByGameIdAndAssignedTeamId(Long gameId, Long teamId);
+
+    /**
+     * Ищет маршрут по номеру слота в рамках игры.
+     *
+     * @param gameId идентификатор игры
+     * @param slotNumber номер слота маршрута
+     * @return найденный маршрут
+     */
+    Optional<TeamGameRoute> findByGameIdAndSlotNumber(Long gameId, Integer slotNumber);
 
     /**
      * Ищет маршрут по идентификатору в рамках игры.
@@ -29,10 +38,18 @@ public interface TeamGameRouteRepository extends JpaRepository<TeamGameRoute, Lo
     Optional<TeamGameRoute> findByIdAndGameId(Long id, Long gameId);
 
     /**
-     * Возвращает все маршруты игры в порядке создания.
+     * Возвращает все маршруты игры по номеру слота.
      *
      * @param gameId идентификатор игры
      * @return список маршрутов
      */
-    List<TeamGameRoute> findAllByGameIdOrderByCreatedAtAsc(Long gameId);
+    List<TeamGameRoute> findAllByGameIdOrderBySlotNumberAsc(Long gameId);
+
+    /**
+     * Возвращает все свободные маршруты игры.
+     *
+     * @param gameId идентификатор игры
+     * @return список свободных маршрутов
+     */
+    List<TeamGameRoute> findAllByGameIdAndAssignedTeamIsNullOrderBySlotNumberAsc(Long gameId);
 }

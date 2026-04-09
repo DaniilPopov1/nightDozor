@@ -28,7 +28,6 @@ import com.example.server.game.dto.TeamGameRouteItemResponse;
 import com.example.server.game.dto.TeamGameRouteResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
-import com.example.server.game.dto.UpdateGameStatusRequest;
 import com.example.server.game.entity.Game;
 import com.example.server.game.entity.GameRegistration;
 import com.example.server.game.entity.GameRegistrationStatus;
@@ -59,10 +58,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 @RequiredArgsConstructor
@@ -70,13 +70,6 @@ import java.util.Set;
  * Сервис бизнес-логики игр, заявок на участие, маршрутов, заданий и игрового прогресса.
  */
 public class GameService {
-
-    private static final Set<GameStatus> PUBLIC_GAME_STATUSES = EnumSet.of(
-            GameStatus.REGISTRATION_OPEN,
-            GameStatus.REGISTRATION_CLOSED,
-            GameStatus.IN_PROGRESS,
-            GameStatus.FINISHED
-    );
 
     private final GameRepository gameRepository;
     private final GameRegistrationRepository gameRegistrationRepository;
@@ -109,6 +102,7 @@ public class GameService {
         game.setMinTeamSize(request.minTeamSize());
         game.setMaxTeamSize(request.maxTeamSize());
         game.setTaskFailurePenaltyMinutes(request.taskFailurePenaltyMinutes());
+        game.setRouteSlotsCount(request.routeSlotsCount());
         game.setRegistrationStartsAt(request.registrationStartsAt());
         game.setRegistrationEndsAt(request.registrationEndsAt());
         game.setStartsAt(request.startsAt());
@@ -133,10 +127,12 @@ public class GameService {
         validateGameRequest(
                 request.minTeamSize(),
                 request.maxTeamSize(),
+                request.routeSlotsCount(),
                 request.registrationStartsAt(),
                 request.registrationEndsAt(),
                 request.startsAt()
         );
+        validateRouteSlotsCountForUpdate(game, request.routeSlotsCount());
 
         game.setTitle(request.title().trim());
         game.setDescription(request.description().trim());
@@ -144,6 +140,7 @@ public class GameService {
         game.setMinTeamSize(request.minTeamSize());
         game.setMaxTeamSize(request.maxTeamSize());
         game.setTaskFailurePenaltyMinutes(request.taskFailurePenaltyMinutes());
+        game.setRouteSlotsCount(request.routeSlotsCount());
         game.setRegistrationStartsAt(request.registrationStartsAt());
         game.setRegistrationEndsAt(request.registrationEndsAt());
         game.setStartsAt(request.startsAt());
@@ -154,16 +151,22 @@ public class GameService {
 
     @Transactional
     /**
-     * Выполняет допустимый переход статуса игры.
+     * Отменяет игру до её завершения.
      *
      * @param organizerEmail email организатора
      * @param gameId идентификатор игры
-     * @param request новый статус игры
      * @return обновленная игра
      */
-    public GameResponse updateGameStatus(String organizerEmail, Long gameId, UpdateGameStatusRequest request) {
+    public GameResponse cancelGame(String organizerEmail, Long gameId) {
         Game game = getOrganizerGame(organizerEmail, gameId);
-        applyStatusTransition(game, request.status());
+        synchronizeGameLifecycle(game, Instant.now());
+
+        if (game.getStatus() == GameStatus.FINISHED || game.getStatus() == GameStatus.CANCELED) {
+            throw new BadRequestException("Отменить можно только незавершенную игру");
+        }
+
+        game.setStatus(GameStatus.CANCELED);
+        game.setFinishedAt(null);
 
         Game savedGame = gameRepository.save(game);
         return buildGameResponse(savedGame);
@@ -181,6 +184,7 @@ public class GameService {
         Team team = getCaptainTeam(captainEmail);
         Game game = gameRepository.findById(gameId)
                 .orElseThrow(() -> new NotFoundException("Игра не найдена"));
+        synchronizeGameLifecycle(game, Instant.now());
 
         if (game.getStatus() != GameStatus.REGISTRATION_OPEN) {
             throw new BadRequestException("Подать заявку можно только в игру с открытой регистрацией");
@@ -241,10 +245,26 @@ public class GameService {
      * @return обновленная заявка
      */
     public GameRegistrationResponse approveRegistration(String organizerEmail, Long gameId, Long registrationId) {
-        getOrganizerGame(organizerEmail, gameId);
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
+
+        if (game.getStatus() != GameStatus.REGISTRATION_OPEN
+                && game.getStatus() != GameStatus.REGISTRATION_CLOSED) {
+            throw new BadRequestException("Подтверждать заявки можно только до начала игры");
+        }
+
         GameRegistration registration = getPendingRegistration(gameId, registrationId);
+        List<TeamGameRoute> freeRoutes = teamGameRouteRepository.findAllByGameIdAndAssignedTeamIsNullOrderBySlotNumberAsc(gameId);
+
+        if (freeRoutes.isEmpty()) {
+            throw new BadRequestException("Нет свободных маршрутов. Сначала подготовьте маршруты для игры");
+        }
+
+        TeamGameRoute assignedRoute = freeRoutes.get(ThreadLocalRandom.current().nextInt(freeRoutes.size()));
 
         registration.setStatus(GameRegistrationStatus.APPROVED);
+        assignedRoute.setAssignedTeam(registration.getTeam());
+        teamGameRouteRepository.save(assignedRoute);
         GameRegistration savedRegistration = gameRegistrationRepository.save(registration);
         return buildGameRegistrationResponse(savedRegistration);
     }
@@ -259,7 +279,14 @@ public class GameService {
      * @return обновленная заявка
      */
     public GameRegistrationResponse rejectRegistration(String organizerEmail, Long gameId, Long registrationId) {
-        getOrganizerGame(organizerEmail, gameId);
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
+
+        if (game.getStatus() != GameStatus.REGISTRATION_OPEN
+                && game.getStatus() != GameStatus.REGISTRATION_CLOSED) {
+            throw new BadRequestException("Отклонять заявки можно только до начала игры");
+        }
+
         GameRegistration registration = getPendingRegistration(gameId, registrationId);
 
         registration.setStatus(GameRegistrationStatus.REJECTED);
@@ -277,58 +304,23 @@ public class GameService {
      */
     public GameStartResponse startGame(String organizerEmail, Long gameId) {
         Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
 
-        if (game.getStatus() != GameStatus.REGISTRATION_CLOSED) {
-            throw new BadRequestException("Запустить игру можно только после закрытия регистрации");
+        if (game.getStatus() != GameStatus.IN_PROGRESS && game.getStatus() != GameStatus.FINISHED) {
+            throw new BadRequestException("Игра ещё не может быть автоматически запущена");
         }
 
-        if (gameTeamSessionRepository.existsByGameId(gameId)) {
-            throw new ConflictException("Игровые сессии для этой игры уже созданы");
-        }
-
-        List<GameRegistration> approvedRegistrations = gameRegistrationRepository
-                .findAllByGameIdAndStatusOrderByCreatedAtDesc(gameId, GameRegistrationStatus.APPROVED);
-
-        if (approvedRegistrations.isEmpty()) {
-            throw new BadRequestException("Нельзя запустить игру без подтвержденных команд");
-        }
-
-        Instant startedAt = Instant.now();
-
-        for (GameRegistration registration : approvedRegistrations) {
-            Team team = registration.getTeam();
-            TeamGameRoute route = teamGameRouteRepository.findByGameIdAndTeamId(gameId, team.getId())
-                    .orElseThrow(() -> new BadRequestException("Для подтвержденной команды не настроен маршрут заданий"));
-
-            List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(route.getId());
-            if (routeItems.isEmpty()) {
-                throw new BadRequestException("Маршрут подтвержденной команды не содержит заданий");
-            }
-
-            TeamGameRouteItem firstRouteItem = routeItems.getFirst();
-            GameTask firstTask = firstRouteItem.getTask();
-
-            GameTeamSession session = new GameTeamSession();
-            session.setGame(game);
-            session.setTeam(team);
-            session.setRoute(route);
-            session.setCurrentRouteItem(firstRouteItem);
-            session.setCurrentTask(firstTask);
-            session.setCurrentOrderIndex(firstRouteItem.getOrderIndex());
-            session.setStatus(GameTeamSessionStatus.IN_PROGRESS);
-            session.setStartedAt(startedAt);
-            session.setCurrentTaskStartedAt(startedAt);
-
-            gameTeamSessionRepository.save(session);
-        }
-
-        game.setStatus(GameStatus.IN_PROGRESS);
-        gameRepository.save(game);
+        int startedSessionsCount = gameTeamSessionRepository.findAllByGameId(gameId).size();
+        Instant startedAt = gameTeamSessionRepository.findAllByGameId(gameId).stream()
+                .map(GameTeamSession::getStartedAt)
+                .filter(Objects::nonNull)
+                .min(Comparator.naturalOrder())
+                .orElse(game.getStartsAt());
 
         return new GameStartResponse(
                 game.getId(),
                 game.getTitle(),
-                approvedRegistrations.size(),
+                startedSessionsCount,
                 startedAt
         );
     }
@@ -410,16 +402,19 @@ public class GameService {
      */
     public TeamGameRouteResponse createRoute(String organizerEmail, Long gameId, CreateTeamGameRouteRequest request) {
         Game game = getOrganizerGame(organizerEmail, gameId);
-        Team team = teamRepository.findById(request.teamId())
-                .orElseThrow(() -> new NotFoundException("Команда не найдена"));
 
-        if (teamGameRouteRepository.findByGameIdAndTeamId(gameId, team.getId()).isPresent()) {
-            throw new ConflictException("Маршрут для этой команды уже существует");
+        int slotNumber = Math.toIntExact(request.slotNumber());
+        if (slotNumber < 1 || slotNumber > game.getRouteSlotsCount()) {
+            throw new BadRequestException("Номер маршрута должен быть в пределах количества маршрутов игры");
+        }
+
+        if (teamGameRouteRepository.findByGameIdAndSlotNumber(gameId, slotNumber).isPresent()) {
+            throw new ConflictException("Маршрут для этого слота уже существует");
         }
 
         TeamGameRoute route = new TeamGameRoute();
         route.setGame(game);
-        route.setTeam(team);
+        route.setSlotNumber(slotNumber);
         route.setName(request.name().trim());
 
         TeamGameRoute savedRoute = teamGameRouteRepository.save(route);
@@ -474,6 +469,7 @@ public class GameService {
         User organizer = getOrganizerByEmail(organizerEmail);
 
         return gameRepository.findAllByOrganizerIdOrderByCreatedAtDesc(organizer.getId()).stream()
+                .map(game -> synchronizeGameLifecycle(game, Instant.now()))
                 .map(this::buildGameListItemResponse)
                 .toList();
     }
@@ -487,10 +483,13 @@ public class GameService {
      */
     public List<GameListItemResponse> getPublicGames(String city) {
         List<Game> games = city == null || city.isBlank()
-                ? gameRepository.findAllByStatusInOrderByCreatedAtDesc(PUBLIC_GAME_STATUSES)
-                : gameRepository.findAllByCityIgnoreCaseAndStatusInOrderByCreatedAtDesc(city.trim(), PUBLIC_GAME_STATUSES);
+                ? gameRepository.findAll()
+                : gameRepository.findAllByCityIgnoreCaseOrderByCreatedAtDesc(city.trim());
 
         return games.stream()
+                .map(game -> synchronizeGameLifecycle(game, Instant.now()))
+                .filter(game -> game.getStatus() != GameStatus.DRAFT && game.getStatus() != GameStatus.CANCELED)
+                .sorted(Comparator.comparing(Game::getCreatedAt).reversed())
                 .map(this::buildGameListItemResponse)
                 .toList();
     }
@@ -504,7 +503,39 @@ public class GameService {
      * @return данные игры
      */
     public GameResponse getOrganizerGameById(String organizerEmail, Long gameId) {
-        return buildGameResponse(getOrganizerGame(organizerEmail, gameId));
+        return buildGameResponse(synchronizeGameLifecycle(getOrganizerGame(organizerEmail, gameId), Instant.now()));
+    }
+
+    @Transactional(readOnly = true)
+    /**
+     * Возвращает список заданий игры текущего организатора.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return список заданий игры
+     */
+    public List<GameTaskResponse> getOrganizerGameTasks(String organizerEmail, Long gameId) {
+        synchronizeGameLifecycle(getOrganizerGame(organizerEmail, gameId), Instant.now());
+
+        return gameTaskRepository.findAllByGameIdOrderByOrderIndexAsc(gameId).stream()
+                .map(this::buildGameTaskResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    /**
+     * Возвращает список маршрутов команд для игры текущего организатора.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return список маршрутов игры
+     */
+    public List<TeamGameRouteResponse> getOrganizerGameRoutes(String organizerEmail, Long gameId) {
+        synchronizeGameLifecycle(getOrganizerGame(organizerEmail, gameId), Instant.now());
+
+        return teamGameRouteRepository.findAllByGameIdOrderBySlotNumberAsc(gameId).stream()
+                .map(this::buildTeamGameRouteResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -517,6 +548,7 @@ public class GameService {
      */
     public List<IncomingGameRegistrationResponse> getIncomingRegistrations(String organizerEmail, Long gameId) {
         Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
 
         return gameRegistrationRepository.findAllByGameIdAndStatusOrderByCreatedAtDesc(
                         game.getId(),
@@ -537,6 +569,7 @@ public class GameService {
         Team team = getCaptainTeam(captainEmail);
 
         return gameRegistrationRepository.findAllByTeamIdOrderByCreatedAtDesc(team.getId()).stream()
+                .peek(registration -> synchronizeGameLifecycle(registration.getGame(), Instant.now()))
                 .map(this::buildTeamGameRegistrationResponse)
                 .toList();
     }
@@ -551,6 +584,7 @@ public class GameService {
      */
     public CurrentGameTaskResponse getCurrentTask(String userEmail) {
         Team team = getActiveTeam(userEmail);
+        synchronizeTeamGamesLifecycle(team, Instant.now());
         GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
                 .orElseThrow(() -> new NotFoundException("У команды нет активной игровой сессии"));
 
@@ -600,6 +634,7 @@ public class GameService {
      */
     public SubmitTaskKeyResponse submitTaskKey(String captainEmail, SubmitTaskKeyRequest request) {
         Team team = getCaptainTeam(captainEmail);
+        synchronizeTeamGamesLifecycle(team, Instant.now());
         GameTeamSession session = gameTeamSessionRepository.findByTeamIdAndStatus(team.getId(), GameTeamSessionStatus.IN_PROGRESS)
                 .orElseThrow(() -> new NotFoundException("У команды нет активной игровой сессии"));
 
@@ -685,6 +720,7 @@ public class GameService {
      */
     public GameTeamProgressResponse getMyTeamProgress(String userEmail) {
         Team team = getActiveTeam(userEmail);
+        synchronizeTeamGamesLifecycle(team, Instant.now());
         GameTeamSession teamSession = gameTeamSessionRepository.findTopByTeamIdOrderByStartedAtDesc(team.getId())
                 .orElseThrow(() -> new NotFoundException("У команды нет игровой сессии"));
 
@@ -735,6 +771,7 @@ public class GameService {
         validateGameRequest(
                 request.minTeamSize(),
                 request.maxTeamSize(),
+                request.routeSlotsCount(),
                 request.registrationStartsAt(),
                 request.registrationEndsAt(),
                 request.startsAt()
@@ -862,6 +899,143 @@ public class GameService {
         }
     }
 
+    private void synchronizeTeamGamesLifecycle(Team team, Instant referenceNow) {
+        gameRegistrationRepository.findAllByTeamIdOrderByCreatedAtDesc(team.getId()).stream()
+                .map(GameRegistration::getGame)
+                .distinct()
+                .forEach(game -> synchronizeGameLifecycle(game, referenceNow));
+    }
+
+    private Game synchronizeGameLifecycle(Game game, Instant referenceNow) {
+        if (game.getStatus() == GameStatus.CANCELED || game.getStatus() == GameStatus.FINISHED) {
+            return game;
+        }
+
+        if (gameTeamSessionRepository.existsByGameIdAndStatus(game.getId(), GameTeamSessionStatus.IN_PROGRESS)) {
+            if (game.getStatus() != GameStatus.IN_PROGRESS) {
+                game.setStatus(GameStatus.IN_PROGRESS);
+                game.setFinishedAt(null);
+                gameRepository.save(game);
+            }
+            return game;
+        }
+
+        if (gameTeamSessionRepository.existsByGameId(game.getId())) {
+            if (game.getStatus() != GameStatus.FINISHED) {
+                game.setStatus(GameStatus.FINISHED);
+                if (game.getFinishedAt() == null) {
+                    game.setFinishedAt(referenceNow);
+                }
+                gameRepository.save(game);
+            }
+            return game;
+        }
+
+        GameStatus computedStatus = computePlannedStatus(game, referenceNow);
+        if (computedStatus == GameStatus.IN_PROGRESS) {
+            if (canAutomaticallyStartGame(game)) {
+                return launchGameSessions(game, referenceNow);
+            }
+
+            computedStatus = GameStatus.REGISTRATION_CLOSED;
+        }
+
+        if (game.getStatus() != computedStatus) {
+            game.setStatus(computedStatus);
+            if (computedStatus != GameStatus.FINISHED) {
+                game.setFinishedAt(null);
+            }
+            gameRepository.save(game);
+        }
+
+        return game;
+    }
+
+    private GameStatus computePlannedStatus(Game game, Instant referenceNow) {
+        if (game.getStartsAt() != null && !referenceNow.isBefore(game.getStartsAt())) {
+            return GameStatus.IN_PROGRESS;
+        }
+
+        if (game.getRegistrationEndsAt() != null && !referenceNow.isBefore(game.getRegistrationEndsAt())) {
+            return GameStatus.REGISTRATION_CLOSED;
+        }
+
+        if (game.getRegistrationStartsAt() == null || !referenceNow.isBefore(game.getRegistrationStartsAt())) {
+            return GameStatus.REGISTRATION_OPEN;
+        }
+
+        return GameStatus.DRAFT;
+    }
+
+    private boolean canAutomaticallyStartGame(Game game) {
+        List<GameRegistration> approvedRegistrations = gameRegistrationRepository
+                .findAllByGameIdAndStatusOrderByCreatedAtDesc(game.getId(), GameRegistrationStatus.APPROVED);
+
+        if (approvedRegistrations.isEmpty()) {
+            return false;
+        }
+
+        for (GameRegistration registration : approvedRegistrations) {
+            TeamGameRoute route = teamGameRouteRepository.findByGameIdAndAssignedTeamId(game.getId(), registration.getTeam().getId())
+                    .orElse(null);
+            if (route == null) {
+                return false;
+            }
+
+            List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(route.getId());
+            if (routeItems.isEmpty()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private Game launchGameSessions(Game game, Instant startedAt) {
+        if (gameTeamSessionRepository.existsByGameId(game.getId())) {
+            game.setStatus(gameTeamSessionRepository.existsByGameIdAndStatus(game.getId(), GameTeamSessionStatus.IN_PROGRESS)
+                    ? GameStatus.IN_PROGRESS
+                    : GameStatus.FINISHED);
+            gameRepository.save(game);
+            return game;
+        }
+
+        List<GameRegistration> approvedRegistrations = gameRegistrationRepository
+                .findAllByGameIdAndStatusOrderByCreatedAtDesc(game.getId(), GameRegistrationStatus.APPROVED);
+
+        for (GameRegistration registration : approvedRegistrations) {
+            Team team = registration.getTeam();
+            TeamGameRoute route = teamGameRouteRepository.findByGameIdAndAssignedTeamId(game.getId(), team.getId())
+                    .orElseThrow(() -> new BadRequestException("Для подтвержденной команды не назначен маршрут заданий"));
+
+            List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(route.getId());
+            if (routeItems.isEmpty()) {
+                throw new BadRequestException("Маршрут подтвержденной команды не содержит заданий");
+            }
+
+            TeamGameRouteItem firstRouteItem = routeItems.getFirst();
+            GameTask firstTask = firstRouteItem.getTask();
+
+            GameTeamSession session = new GameTeamSession();
+            session.setGame(game);
+            session.setTeam(team);
+            session.setRoute(route);
+            session.setCurrentRouteItem(firstRouteItem);
+            session.setCurrentTask(firstTask);
+            session.setCurrentOrderIndex(firstRouteItem.getOrderIndex());
+            session.setStatus(GameTeamSessionStatus.IN_PROGRESS);
+            session.setStartedAt(startedAt);
+            session.setCurrentTaskStartedAt(startedAt);
+            session.setTotalPenaltyMinutes(0);
+            gameTeamSessionRepository.save(session);
+        }
+
+        game.setStatus(GameStatus.IN_PROGRESS);
+        game.setFinishedAt(null);
+        gameRepository.save(game);
+        return game;
+    }
+
     private int getCompletedTasksCount(GameTeamSession session) {
         int totalTasksCount = getTotalTasksCount(session);
 
@@ -914,12 +1088,17 @@ public class GameService {
     private void validateGameRequest(
             Integer minTeamSize,
             Integer maxTeamSize,
+            Integer routeSlotsCount,
             Instant registrationStartsAt,
             Instant registrationEndsAt,
             Instant startsAt
     ) {
         if (minTeamSize > maxTeamSize) {
             throw new BadRequestException("Минимальный размер команды не может быть больше максимального");
+        }
+
+        if (routeSlotsCount == null || routeSlotsCount < 1) {
+            throw new BadRequestException("Количество маршрутов должно быть не меньше 1");
         }
 
         if (registrationStartsAt != null && registrationEndsAt != null && registrationStartsAt.isAfter(registrationEndsAt)) {
@@ -931,33 +1110,18 @@ public class GameService {
         }
     }
 
-    private void applyStatusTransition(Game game, GameStatus targetStatus) {
-        GameStatus currentStatus = game.getStatus();
-
-        if (currentStatus == targetStatus) {
-            return;
+    private void validateRouteSlotsCountForUpdate(Game game, Integer routeSlotsCount) {
+        int existingRoutesCount = teamGameRouteRepository.findAllByGameIdOrderBySlotNumberAsc(game.getId()).size();
+        if (routeSlotsCount < existingRoutesCount) {
+            throw new BadRequestException("Нельзя уменьшить количество маршрутов ниже уже созданных маршрутов");
         }
 
-        boolean allowed = switch (currentStatus) {
-            case DRAFT -> targetStatus == GameStatus.REGISTRATION_OPEN || targetStatus == GameStatus.CANCELED;
-            case REGISTRATION_OPEN -> targetStatus == GameStatus.REGISTRATION_CLOSED || targetStatus == GameStatus.CANCELED;
-            case REGISTRATION_CLOSED -> targetStatus == GameStatus.IN_PROGRESS || targetStatus == GameStatus.CANCELED;
-            case IN_PROGRESS -> targetStatus == GameStatus.FINISHED;
-            case FINISHED, CANCELED -> false;
-        };
-
-        if (!allowed) {
-            throw new BadRequestException("Недопустимый переход статуса игры");
-        }
-
-        game.setStatus(targetStatus);
-
-        if (targetStatus == GameStatus.FINISHED) {
-            game.setFinishedAt(Instant.now());
-        }
-
-        if (targetStatus != GameStatus.FINISHED) {
-            game.setFinishedAt(null);
+        long approvedRegistrationsCount = gameRegistrationRepository.findAllByGameIdAndStatusOrderByCreatedAtDesc(
+                game.getId(),
+                GameRegistrationStatus.APPROVED
+        ).size();
+        if (routeSlotsCount < approvedRegistrationsCount) {
+            throw new BadRequestException("Нельзя уменьшить количество маршрутов ниже числа подтвержденных команд");
         }
     }
 
@@ -969,6 +1133,7 @@ public class GameService {
                 game.getStatus(),
                 game.getMinTeamSize(),
                 game.getMaxTeamSize(),
+                game.getRouteSlotsCount(),
                 game.getRegistrationStartsAt(),
                 game.getRegistrationEndsAt(),
                 game.getStartsAt(),
@@ -986,6 +1151,7 @@ public class GameService {
                 game.getMinTeamSize(),
                 game.getMaxTeamSize(),
                 game.getTaskFailurePenaltyMinutes(),
+                game.getRouteSlotsCount(),
                 game.getRegistrationStartsAt(),
                 game.getRegistrationEndsAt(),
                 game.getStartsAt(),
@@ -1088,8 +1254,9 @@ public class GameService {
         return new TeamGameRouteResponse(
                 route.getId(),
                 route.getGame().getId(),
-                route.getTeam().getId(),
-                route.getTeam().getName(),
+                route.getSlotNumber(),
+                route.getAssignedTeam() != null ? route.getAssignedTeam().getId() : null,
+                route.getAssignedTeam() != null ? route.getAssignedTeam().getName() : null,
                 route.getName(),
                 route.getCreatedAt(),
                 items

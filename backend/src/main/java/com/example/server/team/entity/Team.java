@@ -56,8 +56,8 @@ public class Team {
     @OneToMany(mappedBy = "team", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<GameRegistration> registrations = new HashSet<>();
 
-    @OneToMany(mappedBy = "team", cascade = CascadeType.REMOVE, orphanRemoval = true)
-    private Set<TeamGameRoute> routes = new HashSet<>();
+    @OneToMany(mappedBy = "assignedTeam")
+    private Set<TeamGameRoute> assignedRoutes = new HashSet<>();
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.REMOVE, orphanRemoval = true)
     private Set<GameTeamSession> gameSessions = new HashSet<>();

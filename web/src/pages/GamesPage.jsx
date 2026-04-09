@@ -3,14 +3,11 @@ import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import { useGetGamesQuery, useGetMyTeamRegistrationsQuery } from '../features/game/gameApi.js'
 import { useGetCurrentTeamQuery } from '../features/team/teamApi.js'
-
-function formatDate(value) {
-  if (!value) {
-    return 'Не указано'
-  }
-
-  return new Date(value).toLocaleString('ru-RU')
-}
+import {
+  formatDateTime,
+  formatGameStatus,
+  formatRegistrationStatus,
+} from '../shared/lib/formatters.js'
 
 export function GamesPage() {
   const currentUser = useSelector((state) => state.auth.user)
@@ -32,6 +29,37 @@ export function GamesPage() {
   const registrationMap = new Map(registrations.map((item) => [item.gameId, item]))
   const isCaptain = Boolean(team && currentUser?.id && team.captainId === currentUser.id)
   const error = gamesError?.message
+
+  const getParticipationHint = (game, registration) => {
+    if (registration) {
+      const statusMap = {
+        PENDING: 'Заявка отправлена и ожидает решения организатора.',
+        APPROVED: 'Команда уже подтверждена для участия в этой игре.',
+        REJECTED: 'Организатор отклонил заявку команды на эту игру.',
+        CANCELED: 'Заявка на участие была отменена.',
+      }
+
+      return statusMap[registration.registrationStatus] || 'Статус заявки обновлён.'
+    }
+
+    if (!team) {
+      return 'Для участия в игре сначала нужно состоять в команде.'
+    }
+
+    if (!isCaptain) {
+      return 'Подать заявку на участие может только капитан команды.'
+    }
+
+    if (team.members.length < game.minTeamSize) {
+      return `В команде недостаточно участников: нужно минимум ${game.minTeamSize}.`
+    }
+
+    if (team.members.length > game.maxTeamSize) {
+      return `В команде слишком много участников: максимум ${game.maxTeamSize}.`
+    }
+
+    return 'Команда подходит под условия игры и может подать заявку.'
+  }
 
   return (
     <section className="page-card">
@@ -70,23 +98,28 @@ export function GamesPage() {
             <article key={game.id} className="list-card">
               <h2>{game.title}</h2>
               <p>Город: {game.city}</p>
-              <p>Статус игры: {game.status}</p>
+              <p>Статус игры: {formatGameStatus(game.status)}</p>
               <p>
                 Размер команды: {game.minTeamSize}-{game.maxTeamSize}
               </p>
-              <p>Старт: {formatDate(game.startsAt)}</p>
+              <p>Старт: {formatDateTime(game.startsAt)}</p>
               <p>
-                Заявка: {registration ? registration.registrationStatus : 'Не подана'}
+                Заявка: {registration ? formatRegistrationStatus(registration.registrationStatus) : 'Не подана'}
               </p>
+              <p className="section-block__hint">{getParticipationHint(game, registration)}</p>
 
               <div className="cta-group">
                 <Link className="button button--secondary" to={`/games/${game.id}`}>
                   Открыть игру
                 </Link>
-                {!team ? (
-                  <span className="badge">Сначала нужна команда</span>
+                {!team ? <span className="badge">Нужна команда</span> : null}
+                {team && !isCaptain ? <span className="badge">Только капитан</span> : null}
+                {registration?.registrationStatus === 'APPROVED' ? (
+                  <span className="badge badge--success">Команда допущена</span>
                 ) : null}
-                {team && !isCaptain ? <span className="badge">Заявку подаёт капитан</span> : null}
+                {registration?.registrationStatus === 'REJECTED' ? (
+                  <span className="badge badge--danger">Заявка отклонена</span>
+                ) : null}
               </div>
             </article>
           )

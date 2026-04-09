@@ -5,13 +5,13 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 /**
- * DTO запроса на создание маршрута заданий для команды.
+ * DTO запроса на создание заранее подготовленного маршрута игры.
  *
- * @param teamId идентификатор команды
+ * @param slotNumber номер маршрута в игре
  * @param name название маршрута
  */
 public record CreateTeamGameRouteRequest(
-        @NotNull Long teamId,
+        @NotNull Long slotNumber,
         @NotBlank @Size(max = 150) String name
 ) {
 }

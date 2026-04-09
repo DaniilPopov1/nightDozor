@@ -8,14 +8,11 @@ import {
   useSubmitGameRegistrationMutation,
 } from '../features/game/gameApi.js'
 import { useGetCurrentTeamQuery } from '../features/team/teamApi.js'
-
-function formatDate(value) {
-  if (!value) {
-    return 'Не указано'
-  }
-
-  return new Date(value).toLocaleString('ru-RU')
-}
+import {
+  formatDateTime,
+  formatGameStatus,
+  formatRegistrationStatus,
+} from '../shared/lib/formatters.js'
 
 export function GameDetailsPage() {
   const { gameId } = useParams()
@@ -53,6 +50,40 @@ export function GameDetailsPage() {
   const status = isGamesLoading ? 'loading' : 'succeeded'
   const pageError =
     error || gamesError?.message || (!isGamesLoading && !game ? 'Игра не найдена в публичном списке' : '')
+  const isTeamSizeTooSmall = Boolean(team && game && team.members.length < game.minTeamSize)
+  const isTeamSizeTooLarge = Boolean(team && game && team.members.length > game.maxTeamSize)
+  const teamSizeFits = Boolean(team && game && !isTeamSizeTooSmall && !isTeamSizeTooLarge)
+
+  const participationHint = (() => {
+    if (registration) {
+      const statusMap = {
+        PENDING: 'Заявка уже отправлена и сейчас ожидает решения организатора.',
+        APPROVED: 'Команда подтверждена и допущена к участию в игре.',
+        REJECTED: 'Организатор отклонил заявку команды на участие.',
+        CANCELED: 'Заявка на участие была отменена капитаном.',
+      }
+
+      return statusMap[registration.registrationStatus] || 'Статус заявки обновлён.'
+    }
+
+    if (!team) {
+      return 'Участие станет доступно после создания команды или вступления в неё.'
+    }
+
+    if (!isCaptain) {
+      return 'Отправлять заявку на участие может только капитан команды.'
+    }
+
+    if (isTeamSizeTooSmall) {
+      return `Сейчас в команде ${team.members.length} участников, а нужно минимум ${game.minTeamSize}.`
+    }
+
+    if (isTeamSizeTooLarge) {
+      return `Сейчас в команде ${team.members.length} участников, а допустимо максимум ${game.maxTeamSize}.`
+    }
+
+    return 'Команда подходит под условия игры и может подать заявку.'
+  })()
 
   const handleSubmitRegistration = async () => {
     setError('')
@@ -105,7 +136,7 @@ export function GameDetailsPage() {
               </div>
               <div>
                 <dt>Статус игры</dt>
-                <dd>{game.status}</dd>
+                <dd>{formatGameStatus(game.status)}</dd>
               </div>
               <div>
                 <dt>Размер команды</dt>
@@ -115,15 +146,15 @@ export function GameDetailsPage() {
               </div>
               <div>
                 <dt>Старт игры</dt>
-                <dd>{formatDate(game.startsAt)}</dd>
+                <dd>{formatDateTime(game.startsAt)}</dd>
               </div>
               <div>
                 <dt>Начало регистрации</dt>
-                <dd>{formatDate(game.registrationStartsAt)}</dd>
+                <dd>{formatDateTime(game.registrationStartsAt)}</dd>
               </div>
               <div>
                 <dt>Конец регистрации</dt>
-                <dd>{formatDate(game.registrationEndsAt)}</dd>
+                <dd>{formatDateTime(game.registrationEndsAt)}</dd>
               </div>
             </dl>
           </section>
@@ -157,11 +188,15 @@ export function GameDetailsPage() {
                 </div>
                 <div>
                   <dt>Статус заявки</dt>
-                  <dd>{registration ? registration.registrationStatus : 'Не подана'}</dd>
+                  <dd>{registration ? formatRegistrationStatus(registration.registrationStatus) : 'Не подана'}</dd>
                 </div>
                 <div>
                   <dt>Право подачи заявки</dt>
                   <dd>{isCaptain ? 'Да, ты капитан' : 'Нет, только капитан'}</dd>
+                </div>
+                <div>
+                  <dt>Соответствие по размеру</dt>
+                  <dd>{teamSizeFits ? 'Команда подходит' : 'Есть ограничения'}</dd>
                 </div>
               </dl>
             ) : (
@@ -171,6 +206,8 @@ export function GameDetailsPage() {
             )}
 
             <div className="cta-group">
+              <span className="badge">{participationHint}</span>
+
               {canSubmitRegistration ? (
                 <button
                   className="button button--primary"
@@ -200,9 +237,24 @@ export function GameDetailsPage() {
               ) : null}
 
               {team && !isCaptain ? <span className="badge">Заявку подаёт только капитан</span> : null}
-              {team && isCaptain && !registration && !canSubmitRegistration ? (
+              {team && isCaptain && isTeamSizeTooSmall ? (
+                <span className="badge badge--danger">Недостаточно участников</span>
+              ) : null}
+              {team && isCaptain && isTeamSizeTooLarge ? (
+                <span className="badge badge--danger">Команда превышает лимит</span>
+              ) : null}
+              {registration?.registrationStatus === 'APPROVED' ? (
+                <span className="badge badge--success">Заявка подтверждена</span>
+              ) : null}
+              {registration?.registrationStatus === 'REJECTED' ? (
+                <span className="badge badge--danger">Заявка отклонена</span>
+              ) : null}
+              {registration?.registrationStatus === 'CANCELED' ? (
+                <span className="badge">Заявка отменена</span>
+              ) : null}
+              {team && isCaptain && !registration && !canSubmitRegistration && !isTeamSizeTooSmall && !isTeamSizeTooLarge ? (
                 <span className="badge">
-                  Размер команды не подходит под требования игры
+                  Сейчас заявка недоступна
                 </span>
               ) : null}
             </div>

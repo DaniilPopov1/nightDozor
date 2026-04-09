@@ -48,6 +48,34 @@ export const teamApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: ['OutgoingJoinRequests', 'Teams'],
     }),
+    approveJoinRequest: builder.mutation({
+      query: ({ teamId, userId }) => ({
+        url: `/teams/${teamId}/join-requests/${userId}/approve`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['CurrentTeam', 'IncomingJoinRequests', 'Teams', 'TeamMembership'],
+    }),
+    rejectJoinRequest: builder.mutation({
+      query: ({ teamId, userId }) => ({
+        url: `/teams/${teamId}/join-requests/${userId}/reject`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['IncomingJoinRequests', 'Teams'],
+    }),
+    removeMember: builder.mutation({
+      query: ({ teamId, userId }) => ({
+        url: `/teams/${teamId}/members/${userId}/remove`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['CurrentTeam', 'IncomingJoinRequests', 'Teams', 'TeamMembership'],
+    }),
+    transferCaptainRole: builder.mutation({
+      query: ({ teamId, userId }) => ({
+        url: `/teams/${teamId}/captain/${userId}/transfer`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['CurrentTeam', 'IncomingJoinRequests', 'Teams', 'TeamMembership'],
+    }),
     leaveTeam: builder.mutation({
       query: () => ({
         url: '/teams/leave',
@@ -67,6 +95,7 @@ export const teamApi = apiSlice.injectEndpoints({
 })
 
 export const {
+  useApproveJoinRequestMutation,
   useCreateJoinRequestMutation,
   useCreateTeamMutation,
   useGetCurrentTeamQuery,
@@ -76,4 +105,7 @@ export const {
   useGetTeamsQuery,
   useJoinTeamByCodeMutation,
   useLeaveTeamMutation,
+  useRejectJoinRequestMutation,
+  useRemoveMemberMutation,
+  useTransferCaptainRoleMutation,
 } = teamApi

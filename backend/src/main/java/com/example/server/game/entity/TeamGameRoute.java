@@ -27,19 +27,21 @@ import java.util.Set;
 @Table(
         name = "team_game_routes",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uk_team_game_routes_game_team", columnNames = {"game_id", "team_id"})
+                @UniqueConstraint(name = "uk_team_game_routes_game_slot", columnNames = {"game_id", "slot_number"})
         },
         indexes = {
                 @Index(name = "idx_team_game_routes_game_id", columnList = "game_id"),
-                @Index(name = "idx_team_game_routes_team_id", columnList = "team_id")
+                @Index(name = "idx_team_game_routes_assigned_team_id", columnList = "assigned_team_id"),
+                @Index(name = "idx_team_game_routes_slot_number", columnList = "slot_number")
         }
 )
 @Getter
 @Setter
 @NoArgsConstructor
 /**
- * Сущность маршрута команды в игре.
- * Определяет индивидуальную цепочку заданий для конкретной команды.
+ * Сущность маршрута слота в игре.
+ * Определяет одну из заранее подготовленных цепочек заданий, которая позже может
+ * быть случайно назначена подтверждённой команде.
  */
 public class TeamGameRoute {
 
@@ -51,9 +53,12 @@ public class TeamGameRoute {
     @JoinColumn(name = "game_id", nullable = false)
     private Game game;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "team_id", nullable = false)
-    private Team team;
+    @Column(name = "slot_number", nullable = false)
+    private Integer slotNumber;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assigned_team_id")
+    private Team assignedTeam;
 
     @Column(nullable = false, length = 150)
     private String name;

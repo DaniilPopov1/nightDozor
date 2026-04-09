@@ -18,6 +18,10 @@ const authSlice = createSlice({
   reducers: {
     setCredentials(state, action) {
       state.token = action.payload.accessToken
+      state.user = {
+        email: action.payload.email,
+        role: action.payload.role,
+      }
       localStorage.setItem(TOKEN_STORAGE_KEY, action.payload.accessToken)
     },
     logout(state) {

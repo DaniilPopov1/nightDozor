@@ -2,23 +2,26 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import {
+  useApproveJoinRequestMutation,
   useGetCurrentTeamQuery,
   useGetIncomingJoinRequestsQuery,
   useGetOutgoingJoinRequestsQuery,
   useLeaveTeamMutation,
+  useRejectJoinRequestMutation,
+  useRemoveMemberMutation,
+  useTransferCaptainRoleMutation,
 } from '../features/team/teamApi.js'
-
-function formatDate(value) {
-  if (!value) {
-    return 'Не указано'
-  }
-
-  return new Date(value).toLocaleString('ru-RU')
-}
+import {
+  formatDateTime,
+  formatMembershipStatus,
+  formatTeamRole,
+} from '../shared/lib/formatters.js'
 
 export function TeamPage() {
   const currentUser = useSelector((state) => state.auth.user)
   const [actionMessage, setActionMessage] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [activeActionKey, setActiveActionKey] = useState('')
   const {
     data: team,
     isLoading: isTeamLoading,
@@ -29,6 +32,10 @@ export function TeamPage() {
   })
   const { data: outgoingRequests = [] } = useGetOutgoingJoinRequestsQuery()
   const [leaveTeam, { isLoading: isLeaving }] = useLeaveTeamMutation()
+  const [approveJoinRequest] = useApproveJoinRequestMutation()
+  const [rejectJoinRequest] = useRejectJoinRequestMutation()
+  const [removeMember] = useRemoveMemberMutation()
+  const [transferCaptainRole] = useTransferCaptainRoleMutation()
 
   const isCaptain = useMemo(() => {
     if (!team || !currentUser?.id) {
@@ -40,12 +47,28 @@ export function TeamPage() {
 
   const handleLeaveTeam = async () => {
     setActionMessage('')
+    setActionError('')
 
     try {
       const response = await leaveTeam().unwrap()
       setActionMessage(response.message || 'Вы вышли из команды')
     } catch (requestError) {
-      setActionMessage(requestError?.message || 'Не удалось выйти из команды')
+      setActionError(requestError?.message || 'Не удалось выйти из команды')
+    }
+  }
+
+  const runCaptainAction = async (actionKey, action, successMessage) => {
+    setActiveActionKey(actionKey)
+    setActionMessage('')
+    setActionError('')
+
+    try {
+      await action()
+      setActionMessage(successMessage)
+    } catch (requestError) {
+      setActionError(requestError?.message || 'Не удалось выполнить действие')
+    } finally {
+      setActiveActionKey('')
     }
   }
 
@@ -65,6 +88,7 @@ export function TeamPage() {
 
       {status === 'loading' ? <p className="page-note">Загрузка команды...</p> : null}
       {error ? <p className="form-message form-message--error">{error}</p> : null}
+      {actionError ? <p className="form-message form-message--error">{actionError}</p> : null}
       {actionMessage ? <p className="form-message form-message--success">{actionMessage}</p> : null}
 
       {!team && status === 'succeeded' ? (
@@ -94,8 +118,8 @@ export function TeamPage() {
                   <article key={request.teamId} className="list-card">
                     <h3>{request.teamName}</h3>
                     <p>{request.city}</p>
-                    <p>Статус: {request.status}</p>
-                    <p>Отправлена: {formatDate(request.createdAt)}</p>
+                    <p>Статус: {formatMembershipStatus(request.status)}</p>
+                    <p>Отправлена: {formatDateTime(request.createdAt)}</p>
                   </article>
                 ))}
               </div>
@@ -135,7 +159,7 @@ export function TeamPage() {
               </div>
               <div>
                 <dt>Дата создания</dt>
-                <dd>{formatDate(team.createdAt)}</dd>
+                <dd>{formatDateTime(team.createdAt)}</dd>
               </div>
               <div>
                 <dt>Роль в команде</dt>
@@ -150,9 +174,46 @@ export function TeamPage() {
               {team.members.map((member) => (
                 <article key={member.userId} className="list-card">
                   <h3>{member.email}</h3>
-                  <p>Роль: {member.role}</p>
-                  <p>Статус: {member.status}</p>
-                  <p>Вступил: {formatDate(member.joinedAt)}</p>
+                  <p>Роль: {formatTeamRole(member.role)}</p>
+                  <p>Статус: {formatMembershipStatus(member.status)}</p>
+                  <p>Вступил: {formatDateTime(member.joinedAt)}</p>
+                  {isCaptain && member.userId !== currentUser?.id ? (
+                    <div className="list-card__actions">
+                      <button
+                        className="button button--secondary"
+                        type="button"
+                        onClick={() =>
+                          runCaptainAction(
+                            `remove-${member.userId}`,
+                            () => removeMember({ teamId: team.id, userId: member.userId }).unwrap(),
+                            'Участник исключён из команды',
+                          )
+                        }
+                        disabled={activeActionKey === `remove-${member.userId}`}
+                      >
+                        {activeActionKey === `remove-${member.userId}`
+                          ? 'Исключаем...'
+                          : 'Исключить'}
+                      </button>
+                      <button
+                        className="button button--secondary"
+                        type="button"
+                        onClick={() =>
+                          runCaptainAction(
+                            `transfer-${member.userId}`,
+                            () =>
+                              transferCaptainRole({ teamId: team.id, userId: member.userId }).unwrap(),
+                            'Капитанство передано',
+                          )
+                        }
+                        disabled={activeActionKey === `transfer-${member.userId}`}
+                      >
+                        {activeActionKey === `transfer-${member.userId}`
+                          ? 'Передаём...'
+                          : 'Сделать капитаном'}
+                      </button>
+                    </div>
+                  ) : null}
                 </article>
               ))}
             </div>
@@ -165,11 +226,44 @@ export function TeamPage() {
                 {incomingRequests.map((request) => (
                   <article key={request.userId} className="list-card">
                     <h3>{request.userEmail}</h3>
-                    <p>Статус: {request.status}</p>
-                    <p>Отправлена: {formatDate(request.createdAt)}</p>
-                    <p className="section-block__hint">
-                      Подтверждение и отклонение добавим на следующем шаге.
-                    </p>
+                    <p>Статус: {formatMembershipStatus(request.status)}</p>
+                    <p>Отправлена: {formatDateTime(request.createdAt)}</p>
+                    <div className="list-card__actions">
+                      <button
+                        className="button button--primary"
+                        type="button"
+                        onClick={() =>
+                          runCaptainAction(
+                            `approve-${request.userId}`,
+                            () =>
+                              approveJoinRequest({ teamId: team.id, userId: request.userId }).unwrap(),
+                            'Заявка подтверждена',
+                          )
+                        }
+                        disabled={activeActionKey === `approve-${request.userId}`}
+                      >
+                        {activeActionKey === `approve-${request.userId}`
+                          ? 'Подтверждаем...'
+                          : 'Подтвердить'}
+                      </button>
+                      <button
+                        className="button button--secondary"
+                        type="button"
+                        onClick={() =>
+                          runCaptainAction(
+                            `reject-${request.userId}`,
+                            () =>
+                              rejectJoinRequest({ teamId: team.id, userId: request.userId }).unwrap(),
+                            'Заявка отклонена',
+                          )
+                        }
+                        disabled={activeActionKey === `reject-${request.userId}`}
+                      >
+                        {activeActionKey === `reject-${request.userId}`
+                          ? 'Отклоняем...'
+                          : 'Отклонить'}
+                      </button>
+                    </div>
                   </article>
                 ))}
               </div>
