@@ -81,8 +81,8 @@ export function OrganizerCreateGamePage() {
         <p className="page-card__eyebrow">Организатор</p>
         <h1>Создание игры</h1>
         <p className="page-card__text">
-          Заполни основные параметры игры. Позже можно будет добавить задания,
-          маршруты и работу с заявками команд.
+          Заполни основные параметры игры. После создания ты сможешь настроить задания,
+          маршруты по слотам и обработку заявок команд.
         </p>
       </div>
 
@@ -158,6 +158,10 @@ export function OrganizerCreateGamePage() {
           </label>
         </div>
 
+        <p className="section-block__hint">
+          Количество маршрутов определяет, сколько разных цепочек заданий ты подготовишь для этой игры.
+        </p>
+
         <div className="split-grid">
           <label className="field">
             <span>Штраф за провал, мин</span>
@@ -202,6 +206,10 @@ export function OrganizerCreateGamePage() {
             onChange={handleChange}
           />
         </label>
+
+        <p className="section-block__hint">
+          Если начало регистрации не указано, игра станет доступна для заявок сразу после создания.
+        </p>
 
         {error ? <p className="form-message form-message--error">{error}</p> : null}
 

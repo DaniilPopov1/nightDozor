@@ -212,6 +212,41 @@
   color: #f8fafc;
 }
 
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.subnav__link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(15, 23, 42, 0.4);
+  color: rgba(226, 232, 240, 0.84);
+  text-decoration: none;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease;
+}
+
+.subnav__link:hover {
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fef3c7;
+}
+
+.subnav__link--active {
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.35);
+  color: #fef3c7;
+}
+
 .app-header__logout {
   flex-shrink: 0;
 }
@@ -508,6 +543,10 @@
   margin-top: 18px;
 }
 
+.list-grid--balanced {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .list-card {
   display: grid;
   gap: 8px;
@@ -522,6 +561,56 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 8px;
+}
+
+.route-editor-list {
+  display: grid;
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.route-editor {
+  display: grid;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 22px;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.route-editor__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+
+.route-editor__meta {
+  display: grid;
+  gap: 6px;
+}
+
+.route-editor__items {
+  display: grid;
+  gap: 10px;
+}
+
+.route-editor__item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.route-editor__empty {
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.28);
 }
 
 .empty-state {
@@ -630,14 +719,18 @@
 
   .detail-grid,
   .split-grid,
-  .split-grid--triple {
+  .split-grid--triple,
+  .list-grid--balanced {
     grid-template-columns: 1fr;
   }
 
   .section-block__header,
   .inline-form,
   .list-card__actions,
-  .page-card__header--row {
+  .page-card__header--row,
+  .route-editor__header,
+  .route-editor__item,
+  .subnav {
     flex-direction: column;
     align-items: stretch;
   }

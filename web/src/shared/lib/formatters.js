@@ -47,6 +47,7 @@ export function formatGameStatus(status) {
     REGISTRATION_CLOSED: 'Регистрация закрыта',
     IN_PROGRESS: 'Игра идёт',
     FINISHED: 'Завершена',
+    CANCELED: 'Отменена',
     CANCELLED: 'Отменена',
   }
 

@@ -86,6 +86,8 @@ export const gameApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (result, error, { gameId }) => [
         { type: 'IncomingRegistrations', id: gameId },
+        { type: 'OrganizerRoutes', id: gameId },
+        { type: 'OrganizerGame', id: gameId },
         'MyTeamRegistrations',
       ],
     }),
@@ -96,6 +98,7 @@ export const gameApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (result, error, { gameId }) => [
         { type: 'IncomingRegistrations', id: gameId },
+        { type: 'OrganizerGame', id: gameId },
         'MyTeamRegistrations',
       ],
     }),
@@ -105,13 +108,52 @@ export const gameApi = apiSlice.injectEndpoints({
         method: 'POST',
         body: payload,
       }),
-      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerTasks', id: gameId }],
+      invalidatesTags: (result, error, { gameId }) => [
+        { type: 'OrganizerTasks', id: gameId },
+        { type: 'OrganizerRoutes', id: gameId },
+      ],
+    }),
+    updateTask: builder.mutation({
+      query: ({ gameId, taskId, payload }) => ({
+        url: `/games/my/${gameId}/tasks/${taskId}`,
+        method: 'PUT',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId }) => [
+        { type: 'OrganizerTasks', id: gameId },
+        { type: 'OrganizerRoutes', id: gameId },
+      ],
+    }),
+    deleteTask: builder.mutation({
+      query: ({ gameId, taskId }) => ({
+        url: `/games/my/${gameId}/tasks/${taskId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { gameId }) => [
+        { type: 'OrganizerTasks', id: gameId },
+        { type: 'OrganizerRoutes', id: gameId },
+      ],
     }),
     createTaskHint: builder.mutation({
       query: ({ gameId, taskId, payload }) => ({
         url: `/games/my/${gameId}/tasks/${taskId}/hints`,
         method: 'POST',
         body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerTasks', id: gameId }],
+    }),
+    updateTaskHint: builder.mutation({
+      query: ({ gameId, taskId, hintId, payload }) => ({
+        url: `/games/my/${gameId}/tasks/${taskId}/hints/${hintId}`,
+        method: 'PUT',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerTasks', id: gameId }],
+    }),
+    deleteTaskHint: builder.mutation({
+      query: ({ gameId, taskId, hintId }) => ({
+        url: `/games/my/${gameId}/tasks/${taskId}/hints/${hintId}`,
+        method: 'DELETE',
       }),
       invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerTasks', id: gameId }],
     }),
@@ -123,11 +165,33 @@ export const gameApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
     }),
+    updateRoute: builder.mutation({
+      query: ({ gameId, routeId, payload }) => ({
+        url: `/games/my/${gameId}/routes/${routeId}`,
+        method: 'PUT',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
+    }),
+    deleteRoute: builder.mutation({
+      query: ({ gameId, routeId }) => ({
+        url: `/games/my/${gameId}/routes/${routeId}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
+    }),
     addTaskToRoute: builder.mutation({
       query: ({ gameId, routeId, payload }) => ({
         url: `/games/my/${gameId}/routes/${routeId}/items`,
         method: 'POST',
         body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
+    }),
+    removeTaskFromRoute: builder.mutation({
+      query: ({ gameId, routeId, itemId }) => ({
+        url: `/games/my/${gameId}/routes/${routeId}/items/${itemId}`,
+        method: 'DELETE',
       }),
       invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
     }),
@@ -142,6 +206,9 @@ export const {
   useCreateRouteMutation,
   useCreateTaskHintMutation,
   useCreateTaskMutation,
+  useDeleteTaskHintMutation,
+  useDeleteRouteMutation,
+  useDeleteTaskMutation,
   useGetGamesQuery,
   useGetIncomingRegistrationsQuery,
   useGetMyTeamRegistrationsQuery,
@@ -149,8 +216,12 @@ export const {
   useGetOrganizerGamesQuery,
   useGetOrganizerGameRoutesQuery,
   useGetOrganizerGameTasksQuery,
+  useRemoveTaskFromRouteMutation,
   useRejectRegistrationMutation,
   useSubmitGameRegistrationMutation,
   useUpdateGameMutation,
+  useUpdateRouteMutation,
+  useUpdateTaskHintMutation,
+  useUpdateTaskMutation,
   useCancelOrganizerGameMutation,
 } = gameApi

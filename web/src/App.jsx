@@ -10,8 +10,13 @@ import { GameDetailsPage } from './pages/GameDetailsPage.jsx'
 import { GamesPage } from './pages/GamesPage.jsx'
 import { JoinTeamPage } from './pages/JoinTeamPage.jsx'
 import { LoginPage } from './pages/LoginPage.jsx'
+import { OrganizerGameLayout } from './components/OrganizerGameLayout.jsx'
 import { OrganizerCreateGamePage } from './pages/OrganizerCreateGamePage.jsx'
-import { OrganizerGameDetailsPage } from './pages/OrganizerGameDetailsPage.jsx'
+import { OrganizerGameEditPage } from './pages/OrganizerGameEditPage.jsx'
+import { OrganizerGameHintsPage } from './pages/OrganizerGameHintsPage.jsx'
+import { OrganizerGameRegistrationsPage } from './pages/OrganizerGameRegistrationsPage.jsx'
+import { OrganizerGameRoutesPage } from './pages/OrganizerGameRoutesPage.jsx'
+import { OrganizerGameTasksPage } from './pages/OrganizerGameTasksPage.jsx'
 import { OrganizerGamesPage } from './pages/OrganizerGamesPage.jsx'
 import { ProfilePage } from './pages/ProfilePage.jsx'
 import { RegisterPage } from './pages/RegisterPage.jsx'
@@ -117,11 +122,18 @@ function App() {
           element={
             <RequireAuth>
               <RequireRole role="ORGANIZER">
-                <OrganizerGameDetailsPage />
+                <OrganizerGameLayout />
               </RequireRole>
             </RequireAuth>
           }
-        />
+        >
+          <Route index element={<Navigate to="edit" replace />} />
+          <Route path="edit" element={<OrganizerGameEditPage />} />
+          <Route path="tasks" element={<OrganizerGameTasksPage />} />
+          <Route path="hints" element={<OrganizerGameHintsPage />} />
+          <Route path="routes" element={<OrganizerGameRoutesPage />} />
+          <Route path="registrations" element={<OrganizerGameRegistrationsPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

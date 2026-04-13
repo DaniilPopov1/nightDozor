@@ -16,4 +16,6 @@ public interface GameTaskHintRepository extends JpaRepository<GameTaskHint, Long
      * @return список подсказок
      */
     List<GameTaskHint> findAllByTaskIdOrderByOrderIndexAsc(Long taskId);
+
+    java.util.Optional<GameTaskHint> findByIdAndTaskId(Long id, Long taskId);
 }

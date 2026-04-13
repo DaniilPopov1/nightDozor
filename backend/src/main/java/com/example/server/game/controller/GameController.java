@@ -19,9 +19,13 @@ import com.example.server.game.dto.SubmitTaskKeyResponse;
 import com.example.server.game.dto.TeamGameRouteResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
+import com.example.server.game.dto.UpdateGameTaskRequest;
+import com.example.server.game.dto.UpdateGameTaskHintRequest;
+import com.example.server.game.dto.UpdateTeamGameRouteRequest;
 import com.example.server.game.service.GameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -230,6 +234,26 @@ public class GameController {
                 .body(gameService.createTask(userDetails.getUsername(), gameId, request));
     }
 
+    @PutMapping("/my/{gameId}/tasks/{taskId}")
+    public ResponseEntity<GameTaskResponse> updateTask(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long taskId,
+            @Valid @RequestBody UpdateGameTaskRequest request
+    ) {
+        return ResponseEntity.ok(gameService.updateTask(userDetails.getUsername(), gameId, taskId, request));
+    }
+
+    @DeleteMapping("/my/{gameId}/tasks/{taskId}")
+    public ResponseEntity<Void> deleteTask(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long taskId
+    ) {
+        gameService.deleteTask(userDetails.getUsername(), gameId, taskId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/my/{gameId}/tasks/{taskId}/hints")
     /**
      * Добавляет подсказку к существующему заданию игры.
@@ -250,6 +274,28 @@ public class GameController {
                 .body(gameService.addTaskHint(userDetails.getUsername(), gameId, taskId, request));
     }
 
+    @PutMapping("/my/{gameId}/tasks/{taskId}/hints/{hintId}")
+    public ResponseEntity<GameTaskHintResponse> updateTaskHint(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long taskId,
+            @PathVariable Long hintId,
+            @Valid @RequestBody UpdateGameTaskHintRequest request
+    ) {
+        return ResponseEntity.ok(gameService.updateTaskHint(userDetails.getUsername(), gameId, taskId, hintId, request));
+    }
+
+    @DeleteMapping("/my/{gameId}/tasks/{taskId}/hints/{hintId}")
+    public ResponseEntity<Void> deleteTaskHint(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long taskId,
+            @PathVariable Long hintId
+    ) {
+        gameService.deleteTaskHint(userDetails.getUsername(), gameId, taskId, hintId);
+        return ResponseEntity.noContent().build();
+    }
+
     @PostMapping("/my/{gameId}/routes")
     /**
      * Создает маршрут прохождения заданий для конкретной команды.
@@ -266,6 +312,26 @@ public class GameController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(gameService.createRoute(userDetails.getUsername(), gameId, request));
+    }
+
+    @PutMapping("/my/{gameId}/routes/{routeId}")
+    public ResponseEntity<TeamGameRouteResponse> updateRoute(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long routeId,
+            @Valid @RequestBody UpdateTeamGameRouteRequest request
+    ) {
+        return ResponseEntity.ok(gameService.updateRoute(userDetails.getUsername(), gameId, routeId, request));
+    }
+
+    @DeleteMapping("/my/{gameId}/routes/{routeId}")
+    public ResponseEntity<Void> deleteRoute(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long routeId
+    ) {
+        gameService.deleteRoute(userDetails.getUsername(), gameId, routeId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/my/{gameId}/routes/{routeId}/items")
@@ -285,6 +351,16 @@ public class GameController {
             @Valid @RequestBody AddTaskToRouteRequest request
     ) {
         return ResponseEntity.ok(gameService.addTaskToRoute(userDetails.getUsername(), gameId, routeId, request));
+    }
+
+    @DeleteMapping("/my/{gameId}/routes/{routeId}/items/{itemId}")
+    public ResponseEntity<TeamGameRouteResponse> removeTaskFromRoute(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long routeId,
+            @PathVariable Long itemId
+    ) {
+        return ResponseEntity.ok(gameService.removeTaskFromRoute(userDetails.getUsername(), gameId, routeId, itemId));
     }
 
     @GetMapping("/my/{gameId}/registrations")

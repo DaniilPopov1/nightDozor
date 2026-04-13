@@ -28,6 +28,9 @@ import com.example.server.game.dto.TeamGameRouteItemResponse;
 import com.example.server.game.dto.TeamGameRouteResponse;
 import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
+import com.example.server.game.dto.UpdateGameTaskRequest;
+import com.example.server.game.dto.UpdateGameTaskHintRequest;
+import com.example.server.game.dto.UpdateTeamGameRouteRequest;
 import com.example.server.game.entity.Game;
 import com.example.server.game.entity.GameRegistration;
 import com.example.server.game.entity.GameRegistrationStatus;
@@ -357,6 +360,47 @@ public class GameService {
     }
 
     @Transactional
+    public GameTaskResponse updateTask(String organizerEmail, Long gameId, Long taskId, UpdateGameTaskRequest request) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+
+        GameTask task = gameTaskRepository.findByIdAndGameId(taskId, gameId)
+                .orElseThrow(() -> new NotFoundException("Задание не найдено"));
+
+        boolean orderTaken = gameTaskRepository.findAllByGameIdOrderByOrderIndexAsc(gameId).stream()
+                .anyMatch(existingTask ->
+                        !existingTask.getId().equals(taskId) && existingTask.getOrderIndex().equals(request.orderIndex()));
+        if (orderTaken) {
+            throw new ConflictException("Задание с таким порядком уже существует");
+        }
+
+        task.setTitle(request.title().trim());
+        task.setRiddleText(request.riddleText().trim());
+        task.setAnswerKey(request.answerKey().trim());
+        task.setOrderIndex(request.orderIndex());
+        task.setTimeLimitMinutes(request.timeLimitMinutes());
+        task.setFailurePenaltyMinutes(request.failurePenaltyMinutes());
+
+        GameTask savedTask = gameTaskRepository.save(task);
+        return buildGameTaskResponse(savedTask);
+    }
+
+    @Transactional
+    public void deleteTask(String organizerEmail, Long gameId, Long taskId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+
+        GameTask task = gameTaskRepository.findByIdAndGameId(taskId, gameId)
+                .orElseThrow(() -> new NotFoundException("Задание не найдено"));
+
+        if (teamGameRouteItemRepository.existsByTaskIdAndRouteGameId(taskId, gameId)) {
+            throw new ConflictException("Нельзя удалить задание, которое уже используется в маршруте");
+        }
+
+        gameTaskRepository.delete(task);
+    }
+
+    @Transactional
     /**
      * Добавляет подсказку к заданию игры.
      *
@@ -367,7 +411,8 @@ public class GameService {
      * @return созданная подсказка
      */
     public GameTaskHintResponse addTaskHint(String organizerEmail, Long gameId, Long taskId, CreateGameTaskHintRequest request) {
-        getOrganizerGame(organizerEmail, gameId);
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
         GameTask task = gameTaskRepository.findByIdAndGameId(taskId, gameId)
                 .orElseThrow(() -> new NotFoundException("Задание не найдено"));
 
@@ -389,6 +434,45 @@ public class GameService {
 
         GameTaskHint savedHint = gameTaskHintRepository.save(hint);
         return buildGameTaskHintResponse(savedHint);
+    }
+
+    @Transactional
+    public GameTaskHintResponse updateTaskHint(String organizerEmail, Long gameId, Long taskId, Long hintId, UpdateGameTaskHintRequest request) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+        gameTaskRepository.findByIdAndGameId(taskId, gameId)
+                .orElseThrow(() -> new NotFoundException("Задание не найдено"));
+
+        GameTaskHint hint = gameTaskHintRepository.findByIdAndTaskId(hintId, taskId)
+                .orElseThrow(() -> new NotFoundException("Подсказка не найдена"));
+
+        List<GameTaskHint> existingHints = gameTaskHintRepository.findAllByTaskIdOrderByOrderIndexAsc(taskId);
+        boolean orderTaken = existingHints.stream()
+                .anyMatch(existingHint ->
+                        !existingHint.getId().equals(hintId) && existingHint.getOrderIndex().equals(request.orderIndex()));
+        if (orderTaken) {
+            throw new ConflictException("Подсказка с таким порядком уже существует");
+        }
+
+        hint.setText(request.text().trim());
+        hint.setOrderIndex(request.orderIndex());
+        hint.setDelayMinutesFromPreviousHint(request.delayMinutesFromPreviousHint());
+
+        GameTaskHint savedHint = gameTaskHintRepository.save(hint);
+        return buildGameTaskHintResponse(savedHint);
+    }
+
+    @Transactional
+    public void deleteTaskHint(String organizerEmail, Long gameId, Long taskId, Long hintId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+        gameTaskRepository.findByIdAndGameId(taskId, gameId)
+                .orElseThrow(() -> new NotFoundException("Задание не найдено"));
+
+        GameTaskHint hint = gameTaskHintRepository.findByIdAndTaskId(hintId, taskId)
+                .orElseThrow(() -> new NotFoundException("Подсказка не найдена"));
+
+        gameTaskHintRepository.delete(hint);
     }
 
     @Transactional
@@ -422,6 +506,34 @@ public class GameService {
     }
 
     @Transactional
+    public TeamGameRouteResponse updateRoute(String organizerEmail, Long gameId, Long routeId, UpdateTeamGameRouteRequest request) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+
+        TeamGameRoute route = teamGameRouteRepository.findByIdAndGameId(routeId, gameId)
+                .orElseThrow(() -> new NotFoundException("Маршрут не найден"));
+        route.setName(request.name().trim());
+
+        TeamGameRoute savedRoute = teamGameRouteRepository.save(route);
+        return buildTeamGameRouteResponse(savedRoute);
+    }
+
+    @Transactional
+    public void deleteRoute(String organizerEmail, Long gameId, Long routeId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+
+        TeamGameRoute route = teamGameRouteRepository.findByIdAndGameId(routeId, gameId)
+                .orElseThrow(() -> new NotFoundException("Маршрут не найден"));
+
+        if (route.getAssignedTeam() != null) {
+            throw new ConflictException("Нельзя удалить маршрут, который уже назначен команде");
+        }
+
+        teamGameRouteRepository.delete(route);
+    }
+
+    @Transactional
     /**
      * Добавляет задание в маршрут команды.
      *
@@ -432,7 +544,8 @@ public class GameService {
      * @return обновленный маршрут
      */
     public TeamGameRouteResponse addTaskToRoute(String organizerEmail, Long gameId, Long routeId, AddTaskToRouteRequest request) {
-        getOrganizerGame(organizerEmail, gameId);
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
         TeamGameRoute route = teamGameRouteRepository.findByIdAndGameId(routeId, gameId)
                 .orElseThrow(() -> new NotFoundException("Маршрут не найден"));
         GameTask task = gameTaskRepository.findByIdAndGameId(request.taskId(), gameId)
@@ -459,6 +572,20 @@ public class GameService {
         routeItem.setOrderIndex(request.orderIndex());
         teamGameRouteItemRepository.save(routeItem);
 
+        return buildTeamGameRouteResponse(route);
+    }
+
+    @Transactional
+    public TeamGameRouteResponse removeTaskFromRoute(String organizerEmail, Long gameId, Long routeId, Long itemId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+
+        TeamGameRoute route = teamGameRouteRepository.findByIdAndGameId(routeId, gameId)
+                .orElseThrow(() -> new NotFoundException("Маршрут не найден"));
+        TeamGameRouteItem routeItem = teamGameRouteItemRepository.findByIdAndRouteId(itemId, routeId)
+                .orElseThrow(() -> new NotFoundException("Элемент маршрута не найден"));
+
+        teamGameRouteItemRepository.delete(routeItem);
         return buildTeamGameRouteResponse(route);
     }
 
@@ -972,6 +1099,10 @@ public class GameService {
     }
 
     private boolean canAutomaticallyStartGame(Game game) {
+        if (!hasConsistentRoutes(game)) {
+            return false;
+        }
+
         List<GameRegistration> approvedRegistrations = gameRegistrationRepository
                 .findAllByGameIdAndStatusOrderByCreatedAtDesc(game.getId(), GameRegistrationStatus.APPROVED);
 
@@ -990,6 +1121,32 @@ public class GameService {
             if (routeItems.isEmpty()) {
                 return false;
             }
+        }
+
+        return true;
+    }
+
+    private boolean hasConsistentRoutes(Game game) {
+        List<TeamGameRoute> routes = teamGameRouteRepository.findAllByGameIdOrderBySlotNumberAsc(game.getId());
+        if (routes.size() != game.getRouteSlotsCount()) {
+            return false;
+        }
+
+        Integer expectedTasksCount = null;
+        for (TeamGameRoute route : routes) {
+          int routeTasksCount = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(route.getId()).size();
+          if (routeTasksCount == 0) {
+              return false;
+          }
+
+          if (expectedTasksCount == null) {
+              expectedTasksCount = routeTasksCount;
+              continue;
+          }
+
+          if (!expectedTasksCount.equals(routeTasksCount)) {
+              return false;
+          }
         }
 
         return true;

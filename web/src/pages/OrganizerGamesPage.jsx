@@ -12,7 +12,8 @@ export function OrganizerGamesPage() {
           <p className="page-card__eyebrow">Организатор</p>
           <h1>Мои игры</h1>
           <p className="page-card__text">
-            Здесь собраны все игры, которые ты создал как организатор.
+            Здесь собраны все игры, которые ты создал как организатор. Из этого раздела удобно
+            переходить к настройке маршрутов, заданий и заявок команд.
           </p>
         </div>
 
@@ -27,7 +28,12 @@ export function OrganizerGamesPage() {
       {games.length === 0 && !isFetching ? (
         <section className="empty-state">
           <h2>Игр пока нет</h2>
-          <p>Создай первую игру, чтобы начать настройку сценария и набора команд.</p>
+          <p>Создай первую игру, чтобы задать даты, количество маршрутов и начать приём заявок от команд.</p>
+          <div className="cta-group">
+            <Link className="button button--primary" to="/organizer/games/create">
+              Создать первую игру
+            </Link>
+          </div>
         </section>
       ) : null}
 
@@ -40,6 +46,8 @@ export function OrganizerGamesPage() {
             <p>
               Размер команды: {game.minTeamSize}-{game.maxTeamSize}
             </p>
+            <p>Маршрутов: {game.routeSlotsCount}</p>
+            <p>Регистрация до: {formatDateTime(game.registrationEndsAt)}</p>
             <p>Старт: {formatDateTime(game.startsAt)}</p>
             <div className="cta-group">
               <Link className="button button--secondary" to={`/organizer/games/${game.id}`}>

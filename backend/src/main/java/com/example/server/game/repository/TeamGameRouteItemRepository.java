@@ -4,6 +4,7 @@ import com.example.server.game.entity.TeamGameRouteItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Репозиторий для работы с элементами маршрутов команд.
@@ -25,4 +26,13 @@ public interface TeamGameRouteItemRepository extends JpaRepository<TeamGameRoute
      * @return {@code true}, если задание уже включено в один из маршрутов игры
      */
     boolean existsByTaskIdAndRouteGameId(Long taskId, Long gameId);
+
+    /**
+     * Ищет элемент маршрута по идентификатору в рамках конкретного маршрута.
+     *
+     * @param id идентификатор элемента маршрута
+     * @param routeId идентификатор маршрута
+     * @return найденный элемент маршрута
+     */
+    Optional<TeamGameRouteItem> findByIdAndRouteId(Long id, Long routeId);
 }
