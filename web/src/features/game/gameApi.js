@@ -79,6 +79,46 @@ export const gameApi = apiSlice.injectEndpoints({
       query: (gameId) => `/games/my/${gameId}/routes`,
       providesTags: (result, error, gameId) => [{ type: 'OrganizerRoutes', id: gameId }],
     }),
+    getTeamChatMessages: builder.query({
+      query: (gameId) => `/games/${gameId}/chats/team/messages`,
+      providesTags: (result, error, gameId) => [{ type: 'TeamChat', id: gameId }],
+    }),
+    sendTeamChatMessage: builder.mutation({
+      query: ({ gameId, payload }) => ({
+        url: `/games/${gameId}/chats/team/messages`,
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'TeamChat', id: gameId }],
+    }),
+    getCaptainOrganizerChatMessagesForCaptain: builder.query({
+      query: (gameId) => `/games/${gameId}/chats/captain-organizer/messages`,
+      providesTags: (result, error, gameId) => [{ type: 'CaptainOrganizerChat', id: `captain-${gameId}` }],
+    }),
+    sendCaptainOrganizerChatMessageForCaptain: builder.mutation({
+      query: ({ gameId, payload }) => ({
+        url: `/games/${gameId}/chats/captain-organizer/messages`,
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'CaptainOrganizerChat', id: `captain-${gameId}` }],
+    }),
+    getCaptainOrganizerChatMessagesForOrganizer: builder.query({
+      query: ({ gameId, teamId }) => `/games/my/${gameId}/chats/${teamId}/captain-organizer/messages`,
+      providesTags: (result, error, { gameId, teamId }) => [
+        { type: 'CaptainOrganizerChat', id: `organizer-${gameId}-${teamId}` },
+      ],
+    }),
+    sendCaptainOrganizerChatMessageForOrganizer: builder.mutation({
+      query: ({ gameId, teamId, payload }) => ({
+        url: `/games/my/${gameId}/chats/${teamId}/captain-organizer/messages`,
+        method: 'POST',
+        body: payload,
+      }),
+      invalidatesTags: (result, error, { gameId, teamId }) => [
+        { type: 'CaptainOrganizerChat', id: `organizer-${gameId}-${teamId}` },
+      ],
+    }),
     approveRegistration: builder.mutation({
       query: ({ gameId, registrationId }) => ({
         url: `/games/my/${gameId}/registrations/${registrationId}/approve`,
@@ -216,8 +256,14 @@ export const {
   useGetOrganizerGamesQuery,
   useGetOrganizerGameRoutesQuery,
   useGetOrganizerGameTasksQuery,
+  useGetCaptainOrganizerChatMessagesForCaptainQuery,
+  useGetCaptainOrganizerChatMessagesForOrganizerQuery,
+  useGetTeamChatMessagesQuery,
   useRemoveTaskFromRouteMutation,
   useRejectRegistrationMutation,
+  useSendCaptainOrganizerChatMessageForCaptainMutation,
+  useSendCaptainOrganizerChatMessageForOrganizerMutation,
+  useSendTeamChatMessageMutation,
   useSubmitGameRegistrationMutation,
   useUpdateGameMutation,
   useUpdateRouteMutation,

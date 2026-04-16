@@ -48,7 +48,8 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/verify",
                                 "/api/auth/resend-verification",
-                                "/api/auth/login"
+                                "/api/auth/login",
+                                "/ws/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

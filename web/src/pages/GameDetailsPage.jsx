@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import {
   useCancelGameRegistrationMutation,
+  useGetCaptainOrganizerChatMessagesForCaptainQuery,
   useGetGamesQuery,
   useGetMyTeamRegistrationsQuery,
   useSubmitGameRegistrationMutation,
@@ -13,11 +14,13 @@ import {
   formatGameStatus,
   formatRegistrationStatus,
 } from '../shared/lib/formatters.js'
+import { buildChatSocketUrl, parseSocketEvent } from '../shared/lib/chatSocket.js'
 
 export function GameDetailsPage() {
   const { gameId } = useParams()
   const navigate = useNavigate()
   const currentUser = useSelector((state) => state.auth.user)
+  const token = useSelector((state) => state.auth.token)
   const { data: games = [], isFetching: isGamesLoading, error: gamesError } = useGetGamesQuery('')
   const { data: registrations = [] } = useGetMyTeamRegistrationsQuery()
   const { data: team } = useGetCurrentTeamQuery()
@@ -27,6 +30,14 @@ export function GameDetailsPage() {
     useCancelGameRegistrationMutation()
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [chatMessage, setChatMessage] = useState('')
+  const [chatError, setChatError] = useState('')
+  const [isSendingCaptainOrganizerMessage, setIsSendingCaptainOrganizerMessage] = useState(false)
+  const [isAwaitingCaptainOrganizerAck, setIsAwaitingCaptainOrganizerAck] = useState(false)
+  const [chatSocket, setChatSocket] = useState(null)
+  const [chatFeed, setChatFeed] = useState([])
+  const chatWindowRef = useRef(null)
+  const chatInputRef = useRef(null)
   const game = useMemo(
     () => games.find((item) => String(item.id) === String(gameId)) || null,
     [gameId, games],
@@ -36,8 +47,112 @@ export function GameDetailsPage() {
     () => registrations.find((item) => String(item.gameId) === String(gameId)),
     [gameId, registrations],
   )
-
   const isCaptain = Boolean(team && currentUser?.id && team.captainId === currentUser.id)
+  const isApprovedRegistration = registration?.registrationStatus === 'APPROVED'
+  const {
+    data: captainOrganizerMessages = [],
+    isFetching: isCaptainOrganizerChatLoading,
+    error: captainOrganizerChatError,
+  } = useGetCaptainOrganizerChatMessagesForCaptainQuery(gameId, {
+    skip: !isCaptain || !isApprovedRegistration,
+  })
+
+  useEffect(() => {
+    setChatFeed(captainOrganizerMessages)
+  }, [captainOrganizerMessages])
+
+  useEffect(() => {
+    if (!chatWindowRef.current) {
+      return
+    }
+
+    chatWindowRef.current.scrollTop = chatWindowRef.current.scrollHeight
+  }, [chatFeed])
+
+  const resizeChatInput = (target) => {
+    if (!target) {
+      return
+    }
+
+    target.style.height = 'auto'
+    target.style.height = `${Math.min(target.scrollHeight, 180)}px`
+  }
+
+  useEffect(() => {
+    if (!isCaptain || !isApprovedRegistration || !team?.id || !token) {
+      return undefined
+    }
+
+    const socket = new WebSocket(buildChatSocketUrl(token))
+    setChatSocket(socket)
+
+    socket.onopen = () => {
+      socket.send(
+        JSON.stringify({
+          type: 'SUBSCRIBE',
+          gameId: Number(gameId),
+          teamId: Number(team.id),
+          channel: 'CAPTAIN_ORGANIZER',
+        }),
+      )
+    }
+
+    socket.onmessage = (rawEvent) => {
+      const event = parseSocketEvent(rawEvent)
+      if (!event) {
+        return
+      }
+
+      if (event.type === 'ERROR') {
+        setChatError(event.payload?.error || 'Сервер отклонил сообщение в чате')
+        setIsAwaitingCaptainOrganizerAck(false)
+        return
+      }
+
+      if (event.type !== 'MESSAGE') {
+        return
+      }
+
+      const messagePayload = event.payload?.message
+      if (!messagePayload) {
+        return
+      }
+
+      setChatFeed((current) => {
+        if (current.some((item) => item.id === messagePayload.id)) {
+          return current
+        }
+        return [...current, messagePayload]
+      })
+
+      if (messagePayload.senderEmail === currentUser?.email) {
+        setIsAwaitingCaptainOrganizerAck(false)
+      }
+    }
+
+    socket.onerror = () => {
+      setChatError('Ошибка соединения чата. Попробуй обновить страницу.')
+      setIsAwaitingCaptainOrganizerAck(false)
+    }
+
+    socket.onclose = () => {
+      setChatSocket(null)
+    }
+
+    return () => {
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(
+          JSON.stringify({
+            type: 'UNSUBSCRIBE',
+            gameId: Number(gameId),
+            teamId: Number(team.id),
+            channel: 'CAPTAIN_ORGANIZER',
+          }),
+        )
+      }
+      socket.close()
+    }
+  }, [currentUser?.email, gameId, isApprovedRegistration, isCaptain, team?.id, token])
   const canSubmitRegistration =
     Boolean(team) &&
     isCaptain &&
@@ -107,6 +222,54 @@ export function GameDetailsPage() {
     } catch (requestError) {
       setError(requestError?.message || 'Не удалось отменить заявку')
     }
+  }
+
+  const handleSendCaptainOrganizerMessage = async () => {
+    if (!chatMessage.trim()) {
+      return
+    }
+
+    setChatError('')
+    setIsSendingCaptainOrganizerMessage(true)
+
+    try {
+      if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+        throw new Error('Чат не подключен. Обнови страницу.')
+      }
+
+      chatSocket.send(
+        JSON.stringify({
+          type: 'SEND',
+          gameId: Number(gameId),
+          teamId: Number(team?.id),
+          channel: 'CAPTAIN_ORGANIZER',
+          text: chatMessage.trim(),
+        }),
+      )
+      setIsAwaitingCaptainOrganizerAck(true)
+      setChatMessage('')
+      if (chatInputRef.current) {
+        resizeChatInput(chatInputRef.current)
+      }
+    } catch (requestError) {
+      setChatError(requestError?.message || 'Не удалось отправить сообщение')
+      setIsAwaitingCaptainOrganizerAck(false)
+    } finally {
+      setIsSendingCaptainOrganizerMessage(false)
+    }
+  }
+
+  const handleChatInputKeyDown = (event) => {
+    if (event.key !== 'Enter') {
+      return
+    }
+
+    if (event.ctrlKey) {
+      return
+    }
+
+    event.preventDefault()
+    void handleSendCaptainOrganizerMessage()
   }
 
   return (
@@ -264,6 +427,85 @@ export function GameDetailsPage() {
               ) : null}
             </div>
           </section>
+
+          {isCaptain ? (
+            <section className="section-block">
+              <div className="section-block__header">
+                <div>
+                  <h2>Чат капитана с организатором</h2>
+                  <p className="section-block__text">
+                    Этот канал доступен капитану после подтверждения участия команды в игре.
+                  </p>
+                </div>
+              </div>
+
+              {!isApprovedRegistration ? (
+                <p className="page-note">
+                  Чат станет доступен, когда заявка команды получит статус «Подтверждена».
+                </p>
+              ) : null}
+
+              {isApprovedRegistration && isCaptainOrganizerChatLoading ? (
+                <p className="page-note">Загрузка сообщений...</p>
+              ) : null}
+              {isApprovedRegistration && captainOrganizerChatError?.message ? (
+                <p className="form-message form-message--error">{captainOrganizerChatError.message}</p>
+              ) : null}
+              {chatError ? <p className="form-message form-message--error">{chatError}</p> : null}
+
+              {isApprovedRegistration ? (
+                <div className="stack">
+                  <div ref={chatWindowRef} className="chat-window">
+                    {chatFeed.length === 0 ? (
+                      <p className="page-note">Сообщений пока нет. Начни диалог первым.</p>
+                    ) : (
+                      chatFeed.map((chatItem) => (
+                        <article
+                          key={chatItem.id}
+                          className={
+                            chatItem.senderEmail === currentUser?.email
+                              ? 'chat-message chat-message--own'
+                              : 'chat-message'
+                          }
+                        >
+                          <div className="chat-message__author">{chatItem.senderEmail}</div>
+                          <div className="chat-message__text">{chatItem.text}</div>
+                          <div className="chat-message__time">{formatDateTime(chatItem.createdAt)}</div>
+                        </article>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="chat-composer">
+                    <textarea
+                      ref={chatInputRef}
+                      className="field__textarea field__textarea--small chat-composer__input"
+                      rows="1"
+                      value={chatMessage}
+                      onChange={(event) => setChatMessage(event.target.value)}
+                      onInput={(event) => resizeChatInput(event.target)}
+                      onKeyDown={handleChatInputKeyDown}
+                      placeholder="Напиши сообщение организатору"
+                    />
+                    <button
+                      className="button button--primary"
+                      type="button"
+                      onClick={handleSendCaptainOrganizerMessage}
+                      disabled={
+                        isSendingCaptainOrganizerMessage ||
+                        isAwaitingCaptainOrganizerAck ||
+                        !chatMessage.trim()
+                      }
+                    >
+                      {isSendingCaptainOrganizerMessage || isAwaitingCaptainOrganizerAck
+                        ? 'Отправляем...'
+                        : 'Отправить'}
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       ) : null}
     </section>

@@ -1,10 +1,12 @@
 package com.example.server.game.controller;
 
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.CreateGameChatMessageRequest;
 import com.example.server.game.dto.CreateGameTaskHintRequest;
 import com.example.server.game.dto.CreateGameTaskRequest;
 import com.example.server.game.dto.CreateTeamGameRouteRequest;
 import com.example.server.game.dto.CurrentGameTaskResponse;
+import com.example.server.game.dto.GameChatMessageResponse;
 import com.example.server.game.dto.GameTeamProgressResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameStartResponse;
@@ -423,6 +425,62 @@ public class GameController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return ResponseEntity.ok(gameService.getTeamRegistrations(userDetails.getUsername()));
+    }
+
+    @GetMapping("/{gameId}/chats/team/messages")
+    public ResponseEntity<List<GameChatMessageResponse>> getTeamChatMessages(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.getTeamChatMessages(userDetails.getUsername(), gameId));
+    }
+
+    @PostMapping("/{gameId}/chats/team/messages")
+    public ResponseEntity<GameChatMessageResponse> sendTeamChatMessage(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @Valid @RequestBody CreateGameChatMessageRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(gameService.sendTeamChatMessage(userDetails.getUsername(), gameId, request));
+    }
+
+    @GetMapping("/{gameId}/chats/captain-organizer/messages")
+    public ResponseEntity<List<GameChatMessageResponse>> getCaptainOrganizerChatMessagesForCaptain(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.getCaptainOrganizerChatMessagesForCaptain(userDetails.getUsername(), gameId));
+    }
+
+    @PostMapping("/{gameId}/chats/captain-organizer/messages")
+    public ResponseEntity<GameChatMessageResponse> sendCaptainOrganizerChatMessageForCaptain(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @Valid @RequestBody CreateGameChatMessageRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(gameService.sendCaptainOrganizerChatMessageForCaptain(userDetails.getUsername(), gameId, request));
+    }
+
+    @GetMapping("/my/{gameId}/chats/{teamId}/captain-organizer/messages")
+    public ResponseEntity<List<GameChatMessageResponse>> getCaptainOrganizerChatMessagesForOrganizer(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long teamId
+    ) {
+        return ResponseEntity.ok(gameService.getCaptainOrganizerChatMessagesForOrganizer(userDetails.getUsername(), gameId, teamId));
+    }
+
+    @PostMapping("/my/{gameId}/chats/{teamId}/captain-organizer/messages")
+    public ResponseEntity<GameChatMessageResponse> sendCaptainOrganizerChatMessageForOrganizer(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId,
+            @PathVariable Long teamId,
+            @Valid @RequestBody CreateGameChatMessageRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(gameService.sendCaptainOrganizerChatMessageForOrganizer(userDetails.getUsername(), gameId, teamId, request));
     }
 
     @GetMapping("/current-task")

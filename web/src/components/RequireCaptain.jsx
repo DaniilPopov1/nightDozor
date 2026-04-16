@@ -10,7 +10,11 @@ export function RequireCaptain({ children }) {
   })
 
   if (!user) {
-    return null
+    return (
+      <section className="page-card">
+        <p className="page-note">Проверяем доступ...</p>
+      </section>
+    )
   }
 
   if (isOrganizer) {
@@ -18,14 +22,21 @@ export function RequireCaptain({ children }) {
   }
 
   if (isFetching) {
-    return null
+    return (
+      <section className="page-card">
+        <p className="page-note">Загружаем данные команды...</p>
+      </section>
+    )
   }
 
   if (error?.status === 404 || !currentTeam) {
     return <Navigate to="/teams/join" replace />
   }
 
-  if (currentTeam.captainId !== user.id) {
+  const isCaptainById = user?.id && currentTeam.captainId === user.id
+  const isCaptainByEmail = user?.email && currentTeam.captainEmail === user.email
+
+  if (!isCaptainById && !isCaptainByEmail) {
     return <Navigate to="/team" replace />
   }
 

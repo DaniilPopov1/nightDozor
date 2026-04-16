@@ -51,6 +51,8 @@ export const apiSlice = createApi({
     'IncomingRegistrations',
     'OrganizerTasks',
     'OrganizerRoutes',
+    'TeamChat',
+    'CaptainOrganizerChat',
   ],
   endpoints: () => ({}),
 })

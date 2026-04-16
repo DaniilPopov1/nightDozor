@@ -7,11 +7,13 @@ import com.example.server.common.exception.BadRequestException;
 import com.example.server.common.exception.ConflictException;
 import com.example.server.common.exception.NotFoundException;
 import com.example.server.game.dto.CreateGameRequest;
+import com.example.server.game.dto.CreateGameChatMessageRequest;
 import com.example.server.game.dto.CreateGameTaskHintRequest;
 import com.example.server.game.dto.CreateGameTaskRequest;
 import com.example.server.game.dto.CreateTeamGameRouteRequest;
 import com.example.server.game.dto.CurrentGameTaskHintResponse;
 import com.example.server.game.dto.CurrentGameTaskResponse;
+import com.example.server.game.dto.GameChatMessageResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
 import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.GameTeamProgressResponse;
@@ -32,6 +34,8 @@ import com.example.server.game.dto.UpdateGameTaskRequest;
 import com.example.server.game.dto.UpdateGameTaskHintRequest;
 import com.example.server.game.dto.UpdateTeamGameRouteRequest;
 import com.example.server.game.entity.Game;
+import com.example.server.game.entity.GameChatChannel;
+import com.example.server.game.entity.GameChatMessage;
 import com.example.server.game.entity.GameRegistration;
 import com.example.server.game.entity.GameRegistrationStatus;
 import com.example.server.game.entity.GameStatus;
@@ -46,6 +50,7 @@ import com.example.server.game.repository.GameRepository;
 import com.example.server.game.repository.GameTaskRepository;
 import com.example.server.game.repository.GameTaskHintRepository;
 import com.example.server.game.repository.GameTeamSessionRepository;
+import com.example.server.game.repository.GameChatMessageRepository;
 import com.example.server.game.repository.TeamGameRouteItemRepository;
 import com.example.server.game.repository.TeamGameRouteRepository;
 import com.example.server.team.entity.Team;
@@ -77,6 +82,7 @@ public class GameService {
     private final GameRepository gameRepository;
     private final GameRegistrationRepository gameRegistrationRepository;
     private final GameTeamSessionRepository gameTeamSessionRepository;
+    private final GameChatMessageRepository gameChatMessageRepository;
     private final GameTaskRepository gameTaskRepository;
     private final GameTaskHintRepository gameTaskHintRepository;
     private final TeamGameRouteRepository teamGameRouteRepository;
@@ -705,6 +711,146 @@ public class GameService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<GameChatMessageResponse> getTeamChatMessages(String userEmail, Long gameId) {
+        User user = getUserByEmail(userEmail);
+        TeamMembership membership = getActiveMembership(user);
+        Team team = membership.getTeam();
+        Game game = getApprovedRegistration(gameId, team.getId()).getGame();
+        synchronizeGameLifecycle(game, Instant.now());
+
+        return gameChatMessageRepository
+                .findAllByGameIdAndTeamIdAndChannelOrderByCreatedAtAsc(gameId, team.getId(), GameChatChannel.TEAM)
+                .stream()
+                .map(this::buildGameChatMessageResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public void validateChatAccess(String userEmail, Long gameId, Long teamId, GameChatChannel channel) {
+        resolveChatContext(userEmail, gameId, teamId, channel);
+    }
+
+    @Transactional
+    public GameChatMessageResponse sendChatMessage(
+            String userEmail,
+            Long gameId,
+            Long teamId,
+            GameChatChannel channel,
+            String text
+    ) {
+        ChatContext chatContext = resolveChatContext(userEmail, gameId, teamId, channel);
+
+        String trimmedText = text != null ? text.trim() : "";
+        if (trimmedText.isBlank()) {
+            throw new BadRequestException("Текст сообщения не может быть пустым");
+        }
+
+        if (trimmedText.length() > 4000) {
+            throw new BadRequestException("Сообщение не может быть длиннее 4000 символов");
+        }
+
+        GameChatMessage message = new GameChatMessage();
+        message.setGame(chatContext.game());
+        message.setTeam(chatContext.team());
+        message.setSender(chatContext.sender());
+        message.setChannel(channel);
+        message.setText(trimmedText);
+
+        return buildGameChatMessageResponse(gameChatMessageRepository.save(message));
+    }
+
+    @Transactional
+    public GameChatMessageResponse sendTeamChatMessage(String userEmail, Long gameId, CreateGameChatMessageRequest request) {
+        User user = getUserByEmail(userEmail);
+        TeamMembership membership = getActiveMembership(user);
+        Team team = membership.getTeam();
+        Game game = getApprovedRegistration(gameId, team.getId()).getGame();
+        synchronizeGameLifecycle(game, Instant.now());
+
+        GameChatMessage message = new GameChatMessage();
+        message.setGame(game);
+        message.setTeam(team);
+        message.setSender(user);
+        message.setChannel(GameChatChannel.TEAM);
+        message.setText(request.text().trim());
+
+        return buildGameChatMessageResponse(gameChatMessageRepository.save(message));
+    }
+
+    @Transactional(readOnly = true)
+    public List<GameChatMessageResponse> getCaptainOrganizerChatMessagesForCaptain(String captainEmail, Long gameId) {
+        Team team = getCaptainTeam(captainEmail);
+        Game game = getApprovedRegistration(gameId, team.getId()).getGame();
+        synchronizeGameLifecycle(game, Instant.now());
+
+        return gameChatMessageRepository
+                .findAllByGameIdAndTeamIdAndChannelOrderByCreatedAtAsc(gameId, team.getId(), GameChatChannel.CAPTAIN_ORGANIZER)
+                .stream()
+                .map(this::buildGameChatMessageResponse)
+                .toList();
+    }
+
+    @Transactional
+    public GameChatMessageResponse sendCaptainOrganizerChatMessageForCaptain(
+            String captainEmail,
+            Long gameId,
+            CreateGameChatMessageRequest request
+    ) {
+        User captain = getUserByEmail(captainEmail);
+        Team team = getCaptainTeam(captainEmail);
+        Game game = getApprovedRegistration(gameId, team.getId()).getGame();
+        synchronizeGameLifecycle(game, Instant.now());
+
+        GameChatMessage message = new GameChatMessage();
+        message.setGame(game);
+        message.setTeam(team);
+        message.setSender(captain);
+        message.setChannel(GameChatChannel.CAPTAIN_ORGANIZER);
+        message.setText(request.text().trim());
+
+        return buildGameChatMessageResponse(gameChatMessageRepository.save(message));
+    }
+
+    @Transactional(readOnly = true)
+    public List<GameChatMessageResponse> getCaptainOrganizerChatMessagesForOrganizer(
+            String organizerEmail,
+            Long gameId,
+            Long teamId
+    ) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
+        getApprovedRegistration(gameId, teamId);
+
+        return gameChatMessageRepository
+                .findAllByGameIdAndTeamIdAndChannelOrderByCreatedAtAsc(gameId, teamId, GameChatChannel.CAPTAIN_ORGANIZER)
+                .stream()
+                .map(this::buildGameChatMessageResponse)
+                .toList();
+    }
+
+    @Transactional
+    public GameChatMessageResponse sendCaptainOrganizerChatMessageForOrganizer(
+            String organizerEmail,
+            Long gameId,
+            Long teamId,
+            CreateGameChatMessageRequest request
+    ) {
+        User organizer = getOrganizerByEmail(organizerEmail);
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
+        Team team = getApprovedRegistration(gameId, teamId).getTeam();
+
+        GameChatMessage message = new GameChatMessage();
+        message.setGame(game);
+        message.setTeam(team);
+        message.setSender(organizer);
+        message.setChannel(GameChatChannel.CAPTAIN_ORGANIZER);
+        message.setText(request.text().trim());
+
+        return buildGameChatMessageResponse(gameChatMessageRepository.save(message));
+    }
+
     @Transactional
     /**
      * Возвращает текущее активное задание команды пользователя.
@@ -943,13 +1089,71 @@ public class GameService {
     }
 
     private Team getActiveTeam(String userEmail) {
-        User user = userRepository.findByEmail(userEmail)
+        User user = getUserByEmail(userEmail);
+        return getActiveMembership(user).getTeam();
+    }
+
+    private User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("Пользователь не найден"));
+    }
 
-        TeamMembership membership = teamMembershipRepository.findByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)
+    private TeamMembership getActiveMembership(User user) {
+        return teamMembershipRepository.findByUserIdAndStatus(user.getId(), TeamMembershipStatus.ACTIVE)
                 .orElseThrow(() -> new NotFoundException("У пользователя нет команды"));
+    }
 
-        return membership.getTeam();
+    private GameRegistration getApprovedRegistration(Long gameId, Long teamId) {
+        GameRegistration registration = gameRegistrationRepository.findByGameIdAndTeamId(gameId, teamId)
+                .orElseThrow(() -> new NotFoundException("Команда не зарегистрирована в этой игре"));
+
+        if (registration.getStatus() != GameRegistrationStatus.APPROVED) {
+            throw new BadRequestException("Чаты доступны только для подтвержденных команд игры");
+        }
+
+        return registration;
+    }
+
+    private ChatContext resolveChatContext(String userEmail, Long gameId, Long teamId, GameChatChannel channel) {
+        User user = getUserByEmail(userEmail);
+        GameRegistration approvedRegistration = getApprovedRegistration(gameId, teamId);
+        Game game = approvedRegistration.getGame();
+        Team team = approvedRegistration.getTeam();
+        synchronizeGameLifecycle(game, Instant.now());
+
+        if (channel == GameChatChannel.TEAM) {
+            TeamMembership activeMembership = getActiveMembership(user);
+            if (!activeMembership.getTeam().getId().equals(teamId)) {
+                throw new BadRequestException("Командный чат доступен только участникам выбранной команды");
+            }
+
+            return new ChatContext(user, game, team);
+        }
+
+        if (channel == GameChatChannel.CAPTAIN_ORGANIZER) {
+            boolean isOrganizer = user.getRole() == Role.ORGANIZER && game.getOrganizer().getId().equals(user.getId());
+            if (isOrganizer) {
+                return new ChatContext(user, game, team);
+            }
+
+            TeamMembership activeMembership = getActiveMembership(user);
+            boolean isCaptain = activeMembership.getTeam().getId().equals(teamId)
+                    && activeMembership.getRole() == TeamMembershipRole.CAPTAIN;
+            if (isCaptain) {
+                return new ChatContext(user, game, team);
+            }
+
+            throw new BadRequestException("Чат капитана и организатора доступен только капитану команды и организатору игры");
+        }
+
+        throw new BadRequestException("Неподдерживаемый канал чата");
+    }
+
+    private record ChatContext(
+            User sender,
+            Game game,
+            Team team
+    ) {
     }
 
     private GameRegistration getPendingRegistration(Long gameId, Long registrationId) {
@@ -1421,6 +1625,19 @@ public class GameService {
                 route.getName(),
                 route.getCreatedAt(),
                 items
+        );
+    }
+
+    private GameChatMessageResponse buildGameChatMessageResponse(GameChatMessage message) {
+        return new GameChatMessageResponse(
+                message.getId(),
+                message.getGame().getId(),
+                message.getTeam().getId(),
+                message.getChannel(),
+                message.getSender().getId(),
+                message.getSender().getEmail(),
+                message.getText(),
+                message.getCreatedAt()
         );
     }
 }
