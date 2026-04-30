@@ -13,6 +13,9 @@ export const gameApi = apiSlice.injectEndpoints({
       query: () => '/games/registrations/my-team',
       providesTags: ['MyTeamRegistrations'],
     }),
+    getMyTeamProgress: builder.query({
+      query: () => '/games/progress/my-team',
+    }),
     submitGameRegistration: builder.mutation({
       query: (gameId) => ({
         url: `/games/${gameId}/registrations`,
@@ -70,6 +73,10 @@ export const gameApi = apiSlice.injectEndpoints({
     getIncomingRegistrations: builder.query({
       query: (gameId) => `/games/my/${gameId}/registrations`,
       providesTags: (result, error, gameId) => [{ type: 'IncomingRegistrations', id: gameId }],
+    }),
+    getOrganizerGameResults: builder.query({
+      query: (gameId) => `/games/my/${gameId}/results`,
+      providesTags: (result, error, gameId) => [{ type: 'OrganizerGameResults', id: gameId }],
     }),
     getOrganizerGameTasks: builder.query({
       query: (gameId) => `/games/my/${gameId}/tasks`,
@@ -250,7 +257,9 @@ export const {
   useDeleteRouteMutation,
   useDeleteTaskMutation,
   useGetGamesQuery,
+  useGetMyTeamProgressQuery,
   useGetIncomingRegistrationsQuery,
+  useGetOrganizerGameResultsQuery,
   useGetMyTeamRegistrationsQuery,
   useGetOrganizerGameByIdQuery,
   useGetOrganizerGamesQuery,

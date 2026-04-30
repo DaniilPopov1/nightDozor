@@ -350,6 +350,13 @@
   transform: none;
 }
 
+.button--disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  pointer-events: none;
+  transform: none;
+}
+
 .button--primary {
   background: linear-gradient(135deg, #f59e0b, #ea580c);
   color: #fff7ed;

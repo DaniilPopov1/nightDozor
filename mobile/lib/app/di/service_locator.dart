@@ -8,6 +8,11 @@ import '../../features/auth/data/datasource/auth_local_storage.dart';
 import '../../features/auth/data/repository/auth_repository_impl.dart';
 import '../../features/auth/domain/repository/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/game/data/datasource/game_api.dart';
+import '../../features/game/data/datasource/game_chat_socket.dart';
+import '../../features/game/data/repository/game_repository_impl.dart';
+import '../../features/game/domain/repository/game_repository.dart';
+import '../../features/game/presentation/cubit/game_cubit.dart';
 import '../../features/team/data/datasource/team_api.dart';
 import '../../features/team/data/repository/team_repository_impl.dart';
 import '../../features/team/domain/repository/team_repository.dart';
@@ -25,15 +30,29 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<SharedPreferences>(() => preferences);
   getIt.registerLazySingleton<Dio>(createDioClient);
   getIt.registerLazySingleton<AuthApi>(() => AuthApi(getIt<Dio>()));
+  getIt.registerLazySingleton<GameApi>(() => GameApi(getIt<Dio>()));
   getIt.registerLazySingleton<TeamApi>(() => TeamApi(getIt<Dio>()));
   getIt.registerLazySingleton<AuthLocalStorage>(
     () => AuthLocalStorage(getIt<SharedPreferences>()),
+  );
+  getIt.registerLazySingleton<GameChatSocket>(
+    () => GameChatSocket(getIt<AuthLocalStorage>()),
   );
   getIt.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(getIt<AuthApi>(), getIt<AuthLocalStorage>()),
   );
   getIt.registerFactory<AuthBloc>(
     () => AuthBloc(getIt<AuthRepository>()),
+  );
+  getIt.registerLazySingleton<GameRepository>(
+    () => GameRepositoryImpl(getIt<GameApi>()),
+  );
+  getIt.registerFactory<GameCubit>(
+    () => GameCubit(
+      getIt<GameRepository>(),
+      getIt<TeamRepository>(),
+      getIt<GameChatSocket>(),
+    ),
   );
   getIt.registerLazySingleton<TeamRepository>(
     () => TeamRepositoryImpl(getIt<TeamApi>()),

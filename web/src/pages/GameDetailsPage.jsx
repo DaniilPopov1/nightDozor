@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import {
   useCancelGameRegistrationMutation,
   useGetCaptainOrganizerChatMessagesForCaptainQuery,
   useGetGamesQuery,
   useGetMyTeamRegistrationsQuery,
+  useGetMyTeamProgressQuery,
   useSubmitGameRegistrationMutation,
 } from '../features/game/gameApi.js'
 import { useGetCurrentTeamQuery } from '../features/team/teamApi.js'
@@ -24,6 +25,23 @@ export function GameDetailsPage() {
   const { data: games = [], isFetching: isGamesLoading, error: gamesError } = useGetGamesQuery('')
   const { data: registrations = [] } = useGetMyTeamRegistrationsQuery()
   const { data: team } = useGetCurrentTeamQuery()
+  const game = useMemo(
+    () => games.find((item) => String(item.id) === String(gameId)) || null,
+    [gameId, games],
+  )
+  const registration = useMemo(
+    () => registrations.find((item) => String(item.gameId) === String(gameId)),
+    [gameId, registrations],
+  )
+  const isFinishedGame = game?.status === 'FINISHED'
+  const isCanceledGame = game?.status === 'CANCELED'
+  const {
+    data: teamProgress,
+    isFetching: isTeamProgressLoading,
+    error: teamProgressError,
+  } = useGetMyTeamProgressQuery(undefined, {
+    skip: !team || !isFinishedGame,
+  })
   const [submitGameRegistration, { isLoading: isSubmittingRegistration }] =
     useSubmitGameRegistrationMutation()
   const [cancelGameRegistration, { isLoading: isCancellingRegistration }] =
@@ -38,17 +56,10 @@ export function GameDetailsPage() {
   const [chatFeed, setChatFeed] = useState([])
   const chatWindowRef = useRef(null)
   const chatInputRef = useRef(null)
-  const game = useMemo(
-    () => games.find((item) => String(item.id) === String(gameId)) || null,
-    [gameId, games],
-  )
-
-  const registration = useMemo(
-    () => registrations.find((item) => String(item.gameId) === String(gameId)),
-    [gameId, registrations],
-  )
   const isCaptain = Boolean(team && currentUser?.id && team.captainId === currentUser.id)
   const isApprovedRegistration = registration?.registrationStatus === 'APPROVED'
+  const resultBelongsToCurrentGame =
+    isFinishedGame && teamProgress && String(teamProgress.gameId) === String(gameId)
   const {
     data: captainOrganizerMessages = [],
     isFetching: isCaptainOrganizerChatLoading,
@@ -200,6 +211,16 @@ export function GameDetailsPage() {
     return 'Команда подходит под условия игры и может подать заявку.'
   })()
 
+  const formatDuration = (totalSeconds) => {
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const seconds = totalSeconds % 60
+
+    return [hours, minutes, seconds]
+      .map((value) => String(value).padStart(2, '0'))
+      .join(':')
+  }
+
   const handleSubmitRegistration = async () => {
     setError('')
     setMessage('')
@@ -273,6 +294,9 @@ export function GameDetailsPage() {
   }
 
   return (
+    isCanceledGame ? (
+      <Navigate to="/games" replace />
+    ) : (
     <section className="page-card">
       <div className="page-card__header">
         <p className="page-card__eyebrow">Игра</p>
@@ -325,110 +349,208 @@ export function GameDetailsPage() {
             </dl>
           </section>
 
-          <section className="section-block">
-            <div className="section-block__header">
-              <div>
-                <h2>Участие команды</h2>
-                <p className="section-block__text">
-                  Команда: {team ? team.name : 'Команда пока не создана'}
-                </p>
-              </div>
-              <button
-                className="button button--secondary"
-                type="button"
-                onClick={() => navigate('/games')}
-              >
-                Ко всем играм
-              </button>
-            </div>
-
-            {team ? (
-              <dl className="detail-grid">
+          {isFinishedGame ? (
+            <section className="section-block">
+              <div className="section-block__header">
                 <div>
-                  <dt>Размер текущей команды</dt>
-                  <dd>{team.members.length} участников</dd>
+                  <h2>Результат игры</h2>
+                  <p className="section-block__text">
+                    Игра завершена. Для капитана доступен только итоговый результат команды и общий зачёт.
+                  </p>
                 </div>
-                <div>
-                  <dt>Капитан</dt>
-                  <dd>{team.captainEmail}</dd>
-                </div>
-                <div>
-                  <dt>Статус заявки</dt>
-                  <dd>{registration ? formatRegistrationStatus(registration.registrationStatus) : 'Не подана'}</dd>
-                </div>
-                <div>
-                  <dt>Право подачи заявки</dt>
-                  <dd>{isCaptain ? 'Да, ты капитан' : 'Нет, только капитан'}</dd>
-                </div>
-                <div>
-                  <dt>Соответствие по размеру</dt>
-                  <dd>{teamSizeFits ? 'Команда подходит' : 'Есть ограничения'}</dd>
-                </div>
-              </dl>
-            ) : (
-              <div className="cta-group">
-                <p className="page-note">
-                  Чтобы подать заявку на игру, сначала создай команду или вступи в существующую.
-                </p>
-                <Link className="button button--secondary" to="/teams/create">
-                  Создать команду
-                </Link>
-                <Link className="button button--secondary" to="/teams/join">
-                  Найти команду
-                </Link>
-              </div>
-            )}
-
-            <div className="cta-group">
-              <span className="badge">{participationHint}</span>
-
-              {canSubmitRegistration ? (
-                <button
-                  className="button button--primary"
-                  type="button"
-                  onClick={handleSubmitRegistration}
-                  disabled={actionStatus === 'loading'}
-                >
-                  {actionStatus === 'loading' ? 'Отправляем...' : 'Подать заявку на участие'}
-                </button>
-              ) : null}
-
-              {registration?.registrationStatus === 'PENDING' ? (
                 <button
                   className="button button--secondary"
                   type="button"
-                  onClick={handleCancelRegistration}
-                  disabled={actionStatus === 'loading'}
+                  onClick={() => navigate('/games')}
                 >
-                  {actionStatus === 'loading' ? 'Отменяем...' : 'Отменить заявку'}
+                  Ко всем играм
                 </button>
+              </div>
+
+              {isTeamProgressLoading ? <p className="page-note">Загрузка результата команды...</p> : null}
+              {teamProgressError?.message ? (
+                <p className="form-message form-message--error">{teamProgressError.message}</p>
               ) : null}
 
-              {team && !isCaptain ? <span className="badge">Заявку подаёт только капитан</span> : null}
-              {team && isCaptain && isTeamSizeTooSmall ? (
-                <span className="badge badge--danger">Недостаточно участников</span>
+              {!isTeamProgressLoading && !teamProgressError && !resultBelongsToCurrentGame ? (
+                <section className="empty-state">
+                  <h2>Результат недоступен</h2>
+                  <p>
+                    Для твоей команды нет итогового результата по этой игре. Возможно, команда не участвовала в ней или игровая сессия не была создана.
+                  </p>
+                </section>
               ) : null}
-              {team && isCaptain && isTeamSizeTooLarge ? (
-                <span className="badge badge--danger">Команда превышает лимит</span>
-              ) : null}
-              {registration?.registrationStatus === 'APPROVED' ? (
-                <span className="badge badge--success">Заявка подтверждена</span>
-              ) : null}
-              {registration?.registrationStatus === 'REJECTED' ? (
-                <span className="badge badge--danger">Заявка отклонена</span>
-              ) : null}
-              {registration?.registrationStatus === 'CANCELED' ? (
-                <span className="badge">Заявка отменена</span>
-              ) : null}
-              {team && isCaptain && !registration && !canSubmitRegistration && !isTeamSizeTooSmall && !isTeamSizeTooLarge ? (
-                <span className="badge">
-                  Сейчас заявка недоступна
-                </span>
-              ) : null}
-            </div>
-          </section>
 
-          {isCaptain ? (
+              {resultBelongsToCurrentGame ? (
+                <div className="stack">
+                  <dl className="detail-grid">
+                    <div>
+                      <dt>Место команды</dt>
+                      <dd>{teamProgress.currentPlace}</dd>
+                    </div>
+                    <div>
+                      <dt>Команда</dt>
+                      <dd>{teamProgress.teamName}</dd>
+                    </div>
+                    <div>
+                      <dt>Пройдено этапов</dt>
+                      <dd>
+                        {teamProgress.completedTasksCount} из {teamProgress.totalTasksCount}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt>Штраф</dt>
+                      <dd>{teamProgress.totalPenaltyMinutes} мин.</dd>
+                    </div>
+                    <div>
+                      <dt>Время прохождения</dt>
+                      <dd>{formatDuration(teamProgress.elapsedSeconds)}</dd>
+                    </div>
+                    <div>
+                      <dt>Итоговый score</dt>
+                      <dd>{formatDuration(teamProgress.totalScoreSeconds)}</dd>
+                    </div>
+                    <div>
+                      <dt>Статус сессии</dt>
+                      <dd>{teamProgress.sessionStatus}</dd>
+                    </div>
+                    <div>
+                      <dt>Завершение</dt>
+                      <dd>{teamProgress.finishedAt ? formatDateTime(teamProgress.finishedAt) : 'Не указано'}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="list-grid">
+                    {teamProgress.standings.map((standing) => (
+                      <article key={standing.teamId} className="list-card">
+                        <h3>
+                          #{standing.place} {standing.teamName}
+                        </h3>
+                        <p>
+                          Пройдено этапов: {standing.completedTasksCount} из {standing.totalTasksCount}
+                        </p>
+                        <p>Штраф: {standing.totalPenaltyMinutes} мин.</p>
+                        <p>Время прохождения: {formatDuration(standing.elapsedSeconds)}</p>
+                        <p>Итоговый score: {formatDuration(standing.totalScoreSeconds)}</p>
+                        <p>Статус сессии: {standing.sessionStatus}</p>
+                        <p>
+                          Завершение:{' '}
+                          {standing.finishedAt ? formatDateTime(standing.finishedAt) : 'Команда не завершила игру'}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </section>
+          ) : null}
+
+          {!isFinishedGame ? (
+            <section className="section-block">
+              <div className="section-block__header">
+                <div>
+                  <h2>Участие команды</h2>
+                  <p className="section-block__text">
+                    Команда: {team ? team.name : 'Команда пока не создана'}
+                  </p>
+                </div>
+                <button
+                  className="button button--secondary"
+                  type="button"
+                  onClick={() => navigate('/games')}
+                >
+                  Ко всем играм
+                </button>
+              </div>
+
+              {team ? (
+                <dl className="detail-grid">
+                  <div>
+                    <dt>Размер текущей команды</dt>
+                    <dd>{team.members.length} участников</dd>
+                  </div>
+                  <div>
+                    <dt>Капитан</dt>
+                    <dd>{team.captainEmail}</dd>
+                  </div>
+                  <div>
+                    <dt>Статус заявки</dt>
+                    <dd>{registration ? formatRegistrationStatus(registration.registrationStatus) : 'Не подана'}</dd>
+                  </div>
+                  <div>
+                    <dt>Право подачи заявки</dt>
+                    <dd>{isCaptain ? 'Да, ты капитан' : 'Нет, только капитан'}</dd>
+                  </div>
+                  <div>
+                    <dt>Соответствие по размеру</dt>
+                    <dd>{teamSizeFits ? 'Команда подходит' : 'Есть ограничения'}</dd>
+                  </div>
+                </dl>
+              ) : (
+                <div className="cta-group">
+                  <p className="page-note">
+                    Чтобы подать заявку на игру, сначала создай команду или вступи в существующую.
+                  </p>
+                  <Link className="button button--secondary" to="/teams/create">
+                    Создать команду
+                  </Link>
+                  <Link className="button button--secondary" to="/teams/join">
+                    Найти команду
+                  </Link>
+                </div>
+              )}
+
+              <div className="cta-group">
+                <span className="badge">{participationHint}</span>
+
+                {canSubmitRegistration ? (
+                  <button
+                    className="button button--primary"
+                    type="button"
+                    onClick={handleSubmitRegistration}
+                    disabled={actionStatus === 'loading'}
+                  >
+                    {actionStatus === 'loading' ? 'Отправляем...' : 'Подать заявку на участие'}
+                  </button>
+                ) : null}
+
+                {registration?.registrationStatus === 'PENDING' ? (
+                  <button
+                    className="button button--secondary"
+                    type="button"
+                    onClick={handleCancelRegistration}
+                    disabled={actionStatus === 'loading'}
+                  >
+                    {actionStatus === 'loading' ? 'Отменяем...' : 'Отменить заявку'}
+                  </button>
+                ) : null}
+
+                {team && !isCaptain ? <span className="badge">Заявку подаёт только капитан</span> : null}
+                {team && isCaptain && isTeamSizeTooSmall ? (
+                  <span className="badge badge--danger">Недостаточно участников</span>
+                ) : null}
+                {team && isCaptain && isTeamSizeTooLarge ? (
+                  <span className="badge badge--danger">Команда превышает лимит</span>
+                ) : null}
+                {registration?.registrationStatus === 'APPROVED' ? (
+                  <span className="badge badge--success">Заявка подтверждена</span>
+                ) : null}
+                {registration?.registrationStatus === 'REJECTED' ? (
+                  <span className="badge badge--danger">Заявка отклонена</span>
+                ) : null}
+                {registration?.registrationStatus === 'CANCELED' ? (
+                  <span className="badge">Заявка отменена</span>
+                ) : null}
+                {team && isCaptain && !registration && !canSubmitRegistration && !isTeamSizeTooSmall && !isTeamSizeTooLarge ? (
+                  <span className="badge">
+                    Сейчас заявка недоступна
+                  </span>
+                ) : null}
+              </div>
+            </section>
+          ) : null}
+
+          {isCaptain && !isFinishedGame ? (
             <section className="section-block">
               <div className="section-block__header">
                 <div>
@@ -509,5 +631,6 @@ export function GameDetailsPage() {
         </div>
       ) : null}
     </section>
+    )
   )
 }

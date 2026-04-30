@@ -15,6 +15,7 @@ import { OrganizerCreateGamePage } from './pages/OrganizerCreateGamePage.jsx'
 import { OrganizerGameEditPage } from './pages/OrganizerGameEditPage.jsx'
 import { OrganizerGameHintsPage } from './pages/OrganizerGameHintsPage.jsx'
 import { OrganizerGameRegistrationsPage } from './pages/OrganizerGameRegistrationsPage.jsx'
+import { OrganizerGameResultsPage } from './pages/OrganizerGameResultsPage.jsx'
 import { OrganizerGameRoutesPage } from './pages/OrganizerGameRoutesPage.jsx'
 import { OrganizerGameTasksPage } from './pages/OrganizerGameTasksPage.jsx'
 import { OrganizerGamesPage } from './pages/OrganizerGamesPage.jsx'
@@ -133,6 +134,7 @@ function App() {
           <Route path="hints" element={<OrganizerGameHintsPage />} />
           <Route path="routes" element={<OrganizerGameRoutesPage />} />
           <Route path="registrations" element={<OrganizerGameRegistrationsPage />} />
+          <Route path="results" element={<OrganizerGameResultsPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

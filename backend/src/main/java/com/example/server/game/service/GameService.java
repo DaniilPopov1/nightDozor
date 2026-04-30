@@ -697,13 +697,49 @@ public class GameService {
 
     @Transactional(readOnly = true)
     /**
+     * Возвращает итоговый зачёт завершённой игры для организатора.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return список результатов команд
+     */
+    public List<GameTeamStandingResponse> getOrganizerGameResults(String organizerEmail, Long gameId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
+
+        if (game.getStatus() != GameStatus.FINISHED) {
+            throw new BadRequestException("Результаты доступны только для завершенной игры");
+        }
+
+        Instant now = Instant.now();
+        List<GameTeamSession> sessions = gameTeamSessionRepository.findAllByGameId(gameId);
+
+        for (GameTeamSession session : sessions) {
+            synchronizeSessionWithTimeout(session, now);
+        }
+
+        sessions.sort(Comparator
+                .comparingLong(this::getTotalScoreSeconds)
+                .thenComparing(session -> session.getFinishedAt(), Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(session -> session.getTeam().getName(), String.CASE_INSENSITIVE_ORDER));
+
+        List<GameTeamStandingResponse> standings = new ArrayList<>();
+        for (int i = 0; i < sessions.size(); i++) {
+            standings.add(buildGameTeamStandingResponse(sessions.get(i), i + 1));
+        }
+
+        return standings;
+    }
+
+    @Transactional(readOnly = true)
+    /**
      * Возвращает все заявки текущей команды на игры.
      *
-     * @param captainEmail email капитана команды
+     * @param userEmail email активного участника команды
      * @return список заявок команды
      */
-    public List<TeamGameRegistrationResponse> getTeamRegistrations(String captainEmail) {
-        Team team = getCaptainTeam(captainEmail);
+    public List<TeamGameRegistrationResponse> getTeamRegistrations(String userEmail) {
+        Team team = getActiveTeam(userEmail);
 
         return gameRegistrationRepository.findAllByTeamIdOrderByCreatedAtDesc(team.getId()).stream()
                 .peek(registration -> synchronizeGameLifecycle(registration.getGame(), Instant.now()))

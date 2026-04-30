@@ -258,16 +258,16 @@ export function OrganizerGameRegistrationsPage() {
 
       <div className="list-grid list-grid--balanced">
         {incomingRegistrations.map((registration) => (
-          <article key={registration.id} className="list-card">
+          <article key={registration.registrationId} className="list-card">
             <h3>{registration.teamName}</h3>
             <p>Капитан: {registration.captainEmail}</p>
-            <p>Участников: {registration.memberCount}</p>
+            <p>Участников: {registration.activeMembersCount}</p>
             <p>Статус: {formatRegistrationStatus(registration.status)}</p>
             <div className="list-card__actions">
-              <button className="button button--primary" type="button" onClick={() => handleRegistrationDecision(registration.id, 'approve')} disabled={!canReviewRegistrations || registration.status !== 'PENDING' || isApproving || isRejecting}>
+              <button className="button button--primary" type="button" onClick={() => handleRegistrationDecision(registration.registrationId, 'approve')} disabled={!canReviewRegistrations || registration.status !== 'PENDING' || isApproving || isRejecting}>
                 Подтвердить
               </button>
-              <button className="button button--secondary" type="button" onClick={() => handleRegistrationDecision(registration.id, 'reject')} disabled={!canReviewRegistrations || registration.status !== 'PENDING' || isApproving || isRejecting}>
+              <button className="button button--secondary" type="button" onClick={() => handleRegistrationDecision(registration.registrationId, 'reject')} disabled={!canReviewRegistrations || registration.status !== 'PENDING' || isApproving || isRejecting}>
                 Отклонить
               </button>
             </div>

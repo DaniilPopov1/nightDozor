@@ -123,9 +123,15 @@ export function GamesPage() {
               <p className="section-block__hint">{getParticipationHint(game, registration)}</p>
 
               <div className="cta-group">
-                <Link className="button button--secondary" to={`/games/${game.id}`}>
-                  Открыть игру
-                </Link>
+                {game.status === 'CANCELED' ? (
+                  <span className="button button--secondary button--disabled" aria-disabled="true">
+                    Игра отменена
+                  </span>
+                ) : (
+                  <Link className="button button--secondary" to={`/games/${game.id}`}>
+                    {game.status === 'FINISHED' ? 'Открыть результат' : 'Открыть игру'}
+                  </Link>
+                )}
                 {!team ? <span className="badge">Нужна команда</span> : null}
                 {team && !isCaptain ? <span className="badge">Только капитан</span> : null}
                 {registration?.registrationStatus === 'APPROVED' ? (

@@ -8,6 +8,7 @@ import com.example.server.game.dto.CreateTeamGameRouteRequest;
 import com.example.server.game.dto.CurrentGameTaskResponse;
 import com.example.server.game.dto.GameChatMessageResponse;
 import com.example.server.game.dto.GameTeamProgressResponse;
+import com.example.server.game.dto.GameTeamStandingResponse;
 import com.example.server.game.dto.IncomingGameRegistrationResponse;
 import com.example.server.game.dto.GameStartResponse;
 import com.example.server.game.dto.GameRegistrationResponse;
@@ -380,6 +381,21 @@ public class GameController {
         return ResponseEntity.ok(gameService.getIncomingRegistrations(userDetails.getUsername(), gameId));
     }
 
+    @GetMapping("/my/{gameId}/results")
+    /**
+     * Возвращает итоговый зачёт завершённой игры организатора.
+     *
+     * @param userDetails текущий организатор
+     * @param gameId идентификатор игры
+     * @return итоговый список команд с результатами
+     */
+    public ResponseEntity<List<GameTeamStandingResponse>> getOrganizerGameResults(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.getOrganizerGameResults(userDetails.getUsername(), gameId));
+    }
+
     @PostMapping("/my/{gameId}/registrations/{registrationId}/approve")
     /**
      * Подтверждает заявку команды на участие в игре.
@@ -418,7 +434,7 @@ public class GameController {
     /**
      * Возвращает список заявок текущей команды на разные игры.
      *
-     * @param userDetails текущий капитан команды
+     * @param userDetails текущий участник команды
      * @return список заявок команды
      */
     public ResponseEntity<List<TeamGameRegistrationResponse>> getMyTeamRegistrations(

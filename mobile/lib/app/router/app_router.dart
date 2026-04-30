@@ -7,6 +7,7 @@ import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/participant_only_page.dart';
 import '../../features/auth/presentation/pages/splash_page.dart';
+import '../../features/game/presentation/cubit/game_cubit.dart';
 import '../../features/game/presentation/pages/game_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/team/presentation/cubit/team_cubit.dart';
@@ -67,7 +68,18 @@ class AppRouter {
           routes: [
             GoRoute(
               path: '/game',
-              builder: (context, state) => const GamePage(),
+              builder: (context, state) {
+                final authState = _authBloc.state;
+                final currentUserId = authState is Authenticated
+                    ? authState.user.id
+                    : 0;
+
+                return BlocProvider(
+                  create: (_) => getIt<GameCubit>()
+                    ..loadGame(currentUserId: currentUserId),
+                  child: const GamePage(),
+                );
+              },
             ),
             GoRoute(
               path: '/team',

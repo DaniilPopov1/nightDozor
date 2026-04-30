@@ -1,10 +1,11 @@
-import { Link, NavLink, Outlet, useParams } from 'react-router-dom'
+import { Link, NavLink, Navigate, Outlet, useLocation, useParams } from 'react-router-dom'
 import { useMemo, useState } from 'react'
 import { useGetIncomingRegistrationsQuery, useGetOrganizerGameByIdQuery, useGetOrganizerGameRoutesQuery, useGetOrganizerGameTasksQuery } from '../features/game/gameApi.js'
 import { formatDateTime, formatGameStatus } from '../shared/lib/formatters.js'
 
 export function OrganizerGameLayout() {
   const { gameId } = useParams()
+  const location = useLocation()
   const { data: game, isFetching, error } = useGetOrganizerGameByIdQuery(gameId)
   const { data: tasks = [] } = useGetOrganizerGameTasksQuery(gameId)
   const { data: routes = [] } = useGetOrganizerGameRoutesQuery(gameId)
@@ -37,6 +38,15 @@ export function OrganizerGameLayout() {
 
   const canReviewRegistrations = canManageContent
   const canCancelGame = Boolean(game && !['FINISHED', 'CANCELED'].includes(game.status))
+  const resultsPath = `/organizer/games/${gameId}/results`
+
+  if (game?.status === 'CANCELED') {
+    return <Navigate to="/organizer/games" replace />
+  }
+
+  if (game?.status === 'FINISHED' && location.pathname !== resultsPath) {
+    return <Navigate to={resultsPath} replace />
+  }
 
   return (
     <section className="page-card">
@@ -45,8 +55,9 @@ export function OrganizerGameLayout() {
           <p className="page-card__eyebrow">Организатор</p>
           <h1>{game?.title || 'Игра организатора'}</h1>
           <p className="page-card__text">
-            Отдельные экраны помогают настраивать игру по шагам: сначала параметры, потом
-            задания, подсказки, маршруты и заявки команд.
+            {game?.status === 'FINISHED'
+              ? 'Игра завершена. В этом режиме доступен только итоговый зачёт команд.'
+              : 'Отдельные экраны помогают настраивать игру по шагам: сначала параметры, потом задания, подсказки, маршруты и заявки команд.'}
           </p>
         </div>
 
@@ -92,47 +103,60 @@ export function OrganizerGameLayout() {
             </dl>
 
             <nav className="subnav" aria-label="Навигация по игре">
-              <NavLink
-                end
-                to={`/organizer/games/${gameId}/edit`}
-                className={({ isActive }) =>
-                  isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
-                }
-              >
-                Игра
-              </NavLink>
-              <NavLink
-                to={`/organizer/games/${gameId}/tasks`}
-                className={({ isActive }) =>
-                  isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
-                }
-              >
-                Задания
-              </NavLink>
-              <NavLink
-                to={`/organizer/games/${gameId}/hints`}
-                className={({ isActive }) =>
-                  isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
-                }
-              >
-                Подсказки
-              </NavLink>
-              <NavLink
-                to={`/organizer/games/${gameId}/routes`}
-                className={({ isActive }) =>
-                  isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
-                }
-              >
-                Маршруты
-              </NavLink>
-              <NavLink
-                to={`/organizer/games/${gameId}/registrations`}
-                className={({ isActive }) =>
-                  isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
-                }
-              >
-                Заявки команд
-              </NavLink>
+              {game.status === 'FINISHED' ? (
+                <NavLink
+                  to={resultsPath}
+                  className={({ isActive }) =>
+                    isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                  }
+                >
+                  Результаты
+                </NavLink>
+              ) : (
+                <>
+                  <NavLink
+                    end
+                    to={`/organizer/games/${gameId}/edit`}
+                    className={({ isActive }) =>
+                      isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                    }
+                  >
+                    Игра
+                  </NavLink>
+                  <NavLink
+                    to={`/organizer/games/${gameId}/tasks`}
+                    className={({ isActive }) =>
+                      isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                    }
+                  >
+                    Задания
+                  </NavLink>
+                  <NavLink
+                    to={`/organizer/games/${gameId}/hints`}
+                    className={({ isActive }) =>
+                      isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                    }
+                  >
+                    Подсказки
+                  </NavLink>
+                  <NavLink
+                    to={`/organizer/games/${gameId}/routes`}
+                    className={({ isActive }) =>
+                      isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                    }
+                  >
+                    Маршруты
+                  </NavLink>
+                  <NavLink
+                    to={`/organizer/games/${gameId}/registrations`}
+                    className={({ isActive }) =>
+                      isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                    }
+                  >
+                    Заявки команд
+                  </NavLink>
+                </>
+              )}
             </nav>
           </section>
 

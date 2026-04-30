@@ -50,9 +50,15 @@ export function OrganizerGamesPage() {
             <p>Регистрация до: {formatDateTime(game.registrationEndsAt)}</p>
             <p>Старт: {formatDateTime(game.startsAt)}</p>
             <div className="cta-group">
-              <Link className="button button--secondary" to={`/organizer/games/${game.id}`}>
-                Открыть игру
-              </Link>
+              {game.status === 'CANCELED' ? (
+                <span className="button button--secondary button--disabled" aria-disabled="true">
+                  Игра отменена
+                </span>
+              ) : (
+                <Link className="button button--secondary" to={`/organizer/games/${game.id}`}>
+                  {game.status === 'FINISHED' ? 'Открыть результаты' : 'Открыть игру'}
+                </Link>
+              )}
             </div>
           </article>
         ))}
