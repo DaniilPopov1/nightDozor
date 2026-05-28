@@ -49,6 +49,7 @@ export const apiSlice = createApi({
     'OrganizerGames',
     'OrganizerGame',
     'OrganizerGameResults',
+    'OrganizerGameStandings',
     'IncomingRegistrations',
     'OrganizerTasks',
     'OrganizerRoutes',

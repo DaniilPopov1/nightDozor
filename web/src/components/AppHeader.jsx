@@ -22,9 +22,7 @@ export function AppHeader() {
       ]
     : [
         { to: '/profile', label: 'Профиль' },
-        hasTeam
-          ? { to: '/team', label: 'Моя команда' }
-          : { to: '/teams/join', label: 'Найти команду' },
+        { to: '/team', label: hasTeam ? 'Моя команда' : 'Команда' },
         ...(isCaptain ? [{ to: '/games', label: 'Игры' }] : []),
       ]
 

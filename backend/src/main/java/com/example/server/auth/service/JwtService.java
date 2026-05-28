@@ -36,7 +36,7 @@ public class JwtService {
     /**
      * Инициализирует ключ подписи JWT из конфигурации приложения.
      */
-    void init() {
+    public void init() {
         byte[] keyBytes = resolveSecretBytes(jwtSecret);
         if (keyBytes.length < 32) {
             throw new IllegalStateException("JWT secret must be at least 32 bytes long");
@@ -97,10 +97,13 @@ public class JwtService {
      * @return {@code true}, если токен валиден
      */
     public boolean isTokenValid(String token, UserDetails userDetails) {
-        Claims claims = extractAllClaims(token);
-        String username = claims.getSubject();
-
-        return username.equals(userDetails.getUsername()) && claims.getExpiration().after(new Date());
+        try {
+            Claims claims = extractAllClaims(token);
+            String username = claims.getSubject();
+            return username.equals(userDetails.getUsername()) && claims.getExpiration().after(new Date());
+        } catch (io.jsonwebtoken.JwtException | IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /**

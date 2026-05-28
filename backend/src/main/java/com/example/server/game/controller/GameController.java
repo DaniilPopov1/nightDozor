@@ -396,6 +396,21 @@ public class GameController {
         return ResponseEntity.ok(gameService.getOrganizerGameResults(userDetails.getUsername(), gameId));
     }
 
+    @GetMapping("/my/{gameId}/standings")
+    /**
+     * Возвращает текущий live-рейтинг команд для активной игры организатора.
+     *
+     * @param userDetails текущий организатор
+     * @param gameId идентификатор игры
+     * @return текущий список standings команд
+     */
+    public ResponseEntity<List<GameTeamStandingResponse>> getOrganizerGameStandings(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.getOrganizerGameStandings(userDetails.getUsername(), gameId));
+    }
+
     @PostMapping("/my/{gameId}/registrations/{registrationId}/approve")
     /**
      * Подтверждает заявку команды на участие в игре.

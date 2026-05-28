@@ -731,6 +731,42 @@ public class GameService {
         return standings;
     }
 
+    @Transactional
+    /**
+     * Возвращает текущий live-рейтинг команд для активной игры организатора.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return список текущих standings команд
+     */
+    public List<GameTeamStandingResponse> getOrganizerGameStandings(String organizerEmail, Long gameId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        synchronizeGameLifecycle(game, Instant.now());
+
+        if (game.getStatus() != GameStatus.IN_PROGRESS) {
+            throw new BadRequestException("Live-рейтинг доступен только для активной игры");
+        }
+
+        Instant now = Instant.now();
+        List<GameTeamSession> sessions = gameTeamSessionRepository.findAllByGameId(gameId);
+
+        for (GameTeamSession session : sessions) {
+            synchronizeSessionWithTimeout(session, now);
+        }
+
+        sessions.sort(Comparator
+                .comparingLong(this::getTotalScoreSeconds)
+                .thenComparing(session -> session.getFinishedAt(), Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(session -> session.getTeam().getName(), String.CASE_INSENSITIVE_ORDER));
+
+        List<GameTeamStandingResponse> standings = new ArrayList<>();
+        for (int i = 0; i < sessions.size(); i++) {
+            standings.add(buildGameTeamStandingResponse(sessions.get(i), i + 1));
+        }
+
+        return standings;
+    }
+
     @Transactional(readOnly = true)
     /**
      * Возвращает все заявки текущей команды на игры.

@@ -78,6 +78,10 @@ export const gameApi = apiSlice.injectEndpoints({
       query: (gameId) => `/games/my/${gameId}/results`,
       providesTags: (result, error, gameId) => [{ type: 'OrganizerGameResults', id: gameId }],
     }),
+    getOrganizerGameStandings: builder.query({
+      query: (gameId) => `/games/my/${gameId}/standings`,
+      providesTags: (result, error, gameId) => [{ type: 'OrganizerGameStandings', id: gameId }],
+    }),
     getOrganizerGameTasks: builder.query({
       query: (gameId) => `/games/my/${gameId}/tasks`,
       providesTags: (result, error, gameId) => [{ type: 'OrganizerTasks', id: gameId }],
@@ -260,6 +264,7 @@ export const {
   useGetMyTeamProgressQuery,
   useGetIncomingRegistrationsQuery,
   useGetOrganizerGameResultsQuery,
+  useGetOrganizerGameStandingsQuery,
   useGetMyTeamRegistrationsQuery,
   useGetOrganizerGameByIdQuery,
   useGetOrganizerGamesQuery,

@@ -44,6 +44,10 @@ export function OrganizerGameLayout() {
     return <Navigate to="/organizer/games" replace />
   }
 
+  if (game?.status === 'IN_PROGRESS' && location.pathname !== resultsPath) {
+    return <Navigate to={resultsPath} replace />
+  }
+
   if (game?.status === 'FINISHED' && location.pathname !== resultsPath) {
     return <Navigate to={resultsPath} replace />
   }
@@ -57,7 +61,9 @@ export function OrganizerGameLayout() {
           <p className="page-card__text">
             {game?.status === 'FINISHED'
               ? 'Игра завершена. В этом режиме доступен только итоговый зачёт команд.'
-              : 'Отдельные экраны помогают настраивать игру по шагам: сначала параметры, потом задания, подсказки, маршруты и заявки команд.'}
+              : game?.status === 'IN_PROGRESS'
+                ? 'Игра идёт. Рейтинг команд обновляется автоматически.'
+                : 'Отдельные экраны помогают настраивать игру по шагам: сначала параметры, потом задания, подсказки, маршруты и заявки команд.'}
           </p>
         </div>
 
@@ -103,7 +109,16 @@ export function OrganizerGameLayout() {
             </dl>
 
             <nav className="subnav" aria-label="Навигация по игре">
-              {game.status === 'FINISHED' ? (
+              {game.status === 'IN_PROGRESS' ? (
+                <NavLink
+                  to={resultsPath}
+                  className={({ isActive }) =>
+                    isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                  }
+                >
+                  Рейтинг
+                </NavLink>
+              ) : game.status === 'FINISHED' ? (
                 <NavLink
                   to={resultsPath}
                   className={({ isActive }) =>

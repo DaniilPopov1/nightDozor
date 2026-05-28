@@ -2,10 +2,12 @@ package com.example.server.auth.service;
 
 import com.example.server.auth.event.UserRegisteredEvent;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+@Slf4j
 @Component
 @RequiredArgsConstructor
 /**
@@ -22,6 +24,10 @@ public class RegistrationEmailListener {
      * @param event событие регистрации пользователя
      */
     public void handle(UserRegisteredEvent event) {
-        emailService.sendVerificationEmail(event.email(), event.token());
+        try {
+            emailService.sendVerificationEmail(event.email(), event.token());
+        } catch (Exception ex) {
+            log.error("Не удалось отправить письмо подтверждения на {}: {}", event.email(), ex.getMessage(), ex);
+        }
     }
 }
