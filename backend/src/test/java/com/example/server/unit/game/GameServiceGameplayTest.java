@@ -116,7 +116,6 @@ class GameServiceGameplayTest {
         r.setId(id);
         r.setGame(game);
         r.setSlotNumber(1);
-        r.setName("Route A");
         return r;
     }
 

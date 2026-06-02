@@ -32,7 +32,6 @@ import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameTaskRequest;
 import com.example.server.game.dto.UpdateGameTaskHintRequest;
-import com.example.server.game.dto.UpdateTeamGameRouteRequest;
 import com.example.server.game.entity.Game;
 import com.example.server.game.entity.GameChatChannel;
 import com.example.server.game.entity.GameChatMessage;
@@ -505,20 +504,6 @@ public class GameService {
         TeamGameRoute route = new TeamGameRoute();
         route.setGame(game);
         route.setSlotNumber(slotNumber);
-        route.setName(request.name().trim());
-
-        TeamGameRoute savedRoute = teamGameRouteRepository.save(route);
-        return buildTeamGameRouteResponse(savedRoute);
-    }
-
-    @Transactional
-    public TeamGameRouteResponse updateRoute(String organizerEmail, Long gameId, Long routeId, UpdateTeamGameRouteRequest request) {
-        Game game = getOrganizerGame(organizerEmail, gameId);
-        validateGameEditable(game);
-
-        TeamGameRoute route = teamGameRouteRepository.findByIdAndGameId(routeId, gameId)
-                .orElseThrow(() -> new NotFoundException("Маршрут не найден"));
-        route.setName(request.name().trim());
 
         TeamGameRoute savedRoute = teamGameRouteRepository.save(route);
         return buildTeamGameRouteResponse(savedRoute);
@@ -1694,7 +1679,6 @@ public class GameService {
                 route.getSlotNumber(),
                 route.getAssignedTeam() != null ? route.getAssignedTeam().getId() : null,
                 route.getAssignedTeam() != null ? route.getAssignedTeam().getName() : null,
-                route.getName(),
                 route.getCreatedAt(),
                 items
         );

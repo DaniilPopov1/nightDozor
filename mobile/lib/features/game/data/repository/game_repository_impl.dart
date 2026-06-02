@@ -16,7 +16,10 @@ class GameRepositoryImpl implements GameRepository {
   Future<GameOverview?> getCurrentGameOverview() async {
     try {
       final progress = await _gameApi.getMyTeamProgress();
-      return GameOverview.active(progress);
+      final status = progress.sessionStatus.toUpperCase();
+      if (status != 'FINISHED' && status != 'CANCELED') {
+        return GameOverview.active(progress);
+      }
     } on DioException catch (error) {
       final statusCode = error.response?.statusCode;
 
@@ -29,11 +32,16 @@ class GameRepositoryImpl implements GameRepository {
 
     try {
       final registrations = await _gameApi.getMyTeamRegistrations();
-      if (registrations.isEmpty) {
+      final active = registrations.where((r) {
+        final gs = r.gameStatus.toUpperCase();
+        return gs != 'FINISHED' && gs != 'CANCELED';
+      }).toList();
+
+      if (active.isEmpty) {
         return null;
       }
 
-      return GameOverview.registration(registrations.first);
+      return GameOverview.registration(active.first);
     } on DioException catch (error) {
       final statusCode = error.response?.statusCode;
 

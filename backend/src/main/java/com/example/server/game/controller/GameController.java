@@ -24,7 +24,6 @@ import com.example.server.game.dto.TeamGameRegistrationResponse;
 import com.example.server.game.dto.UpdateGameRequest;
 import com.example.server.game.dto.UpdateGameTaskRequest;
 import com.example.server.game.dto.UpdateGameTaskHintRequest;
-import com.example.server.game.dto.UpdateTeamGameRouteRequest;
 import com.example.server.game.service.GameService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -315,16 +314,6 @@ public class GameController {
     ) {
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(gameService.createRoute(userDetails.getUsername(), gameId, request));
-    }
-
-    @PutMapping("/my/{gameId}/routes/{routeId}")
-    public ResponseEntity<TeamGameRouteResponse> updateRoute(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long gameId,
-            @PathVariable Long routeId,
-            @Valid @RequestBody UpdateTeamGameRouteRequest request
-    ) {
-        return ResponseEntity.ok(gameService.updateRoute(userDetails.getUsername(), gameId, routeId, request));
     }
 
     @DeleteMapping("/my/{gameId}/routes/{routeId}")

@@ -11,7 +11,6 @@ import java.util.List;
  * @param slotNumber номер маршрута в игре
  * @param assignedTeamId идентификатор команды, которой назначен маршрут
  * @param assignedTeamName название команды, которой назначен маршрут
- * @param name название маршрута
  * @param createdAt дата создания маршрута
  * @param items список заданий маршрута
  */
@@ -21,7 +20,6 @@ public record TeamGameRouteResponse(
         Integer slotNumber,
         Long assignedTeamId,
         String assignedTeamName,
-        String name,
         Instant createdAt,
         List<TeamGameRouteItemResponse> items
 ) {

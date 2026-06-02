@@ -160,7 +160,6 @@ class GameServiceLifecycleTest {
         r.setId(id);
         r.setGame(game);
         r.setSlotNumber(slot);
-        r.setName("Route " + slot);
         return r;
     }
 
@@ -867,7 +866,7 @@ class GameServiceLifecycleTest {
         User organizer = makeOrganizer(1L, "org@test.com");
         Game game = makeDraftGame(GAME_ID, organizer);
         game.setRouteSlotsCount(2);
-        CreateTeamGameRouteRequest req = new CreateTeamGameRouteRequest(1L, "Route A");
+        CreateTeamGameRouteRequest req = new CreateTeamGameRouteRequest(1L);
         TeamGameRoute saved = makeRoute(30L, game, 1);
 
         when(userRepository.findByEmail("org@test.com")).thenReturn(Optional.of(organizer));
@@ -887,7 +886,7 @@ class GameServiceLifecycleTest {
         User organizer = makeOrganizer(1L, "org@test.com");
         Game game = makeDraftGame(GAME_ID, organizer);
         game.setRouteSlotsCount(2);
-        CreateTeamGameRouteRequest req = new CreateTeamGameRouteRequest(5L, "Route X");
+        CreateTeamGameRouteRequest req = new CreateTeamGameRouteRequest(5L);
 
         when(userRepository.findByEmail("org@test.com")).thenReturn(Optional.of(organizer));
         when(gameRepository.findByIdAndOrganizerId(GAME_ID, 1L)).thenReturn(Optional.of(game));
@@ -902,7 +901,7 @@ class GameServiceLifecycleTest {
         Game game = makeDraftGame(GAME_ID, organizer);
         game.setRouteSlotsCount(2);
         TeamGameRoute existing = makeRoute(30L, game, 1);
-        CreateTeamGameRouteRequest req = new CreateTeamGameRouteRequest(1L, "Route A");
+        CreateTeamGameRouteRequest req = new CreateTeamGameRouteRequest(1L);
 
         when(userRepository.findByEmail("org@test.com")).thenReturn(Optional.of(organizer));
         when(gameRepository.findByIdAndOrganizerId(GAME_ID, 1L)).thenReturn(Optional.of(game));
@@ -911,27 +910,6 @@ class GameServiceLifecycleTest {
 
         assertThrows(ConflictException.class,
                 () -> gameService.createRoute("org@test.com", GAME_ID, req));
-    }
-
-    // ─── updateRoute ──────────────────────────────────────────────────────────
-
-    @Test // №38 — Успешное обновление маршрута
-    void updateRoute_success_updatesName() {
-        User organizer = makeOrganizer(1L, "org@test.com");
-        Game game = makeDraftGame(GAME_ID, organizer);
-        TeamGameRoute route = makeRoute(30L, game, 1);
-        UpdateTeamGameRouteRequest req = new UpdateTeamGameRouteRequest("New Name");
-        TeamGameRoute saved = makeRoute(30L, game, 1);
-        saved.setName("New Name");
-
-        when(userRepository.findByEmail("org@test.com")).thenReturn(Optional.of(organizer));
-        when(gameRepository.findByIdAndOrganizerId(GAME_ID, 1L)).thenReturn(Optional.of(game));
-        when(teamGameRouteRepository.findByIdAndGameId(30L, GAME_ID)).thenReturn(Optional.of(route));
-        when(teamGameRouteRepository.save(any(TeamGameRoute.class))).thenReturn(saved);
-
-        TeamGameRouteResponse resp = gameService.updateRoute("org@test.com", GAME_ID, 30L, req);
-
-        assertEquals("New Name", resp.name());
     }
 
     // ─── deleteRoute ──────────────────────────────────────────────────────────

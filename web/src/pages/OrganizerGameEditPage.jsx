@@ -11,7 +11,6 @@ function buildGameForm(game) {
     minTeamSize: String(game?.minTeamSize || 1),
     maxTeamSize: String(game?.maxTeamSize || 1),
     routeSlotsCount: String(game?.routeSlotsCount || 1),
-    taskFailurePenaltyMinutes: String(game?.taskFailurePenaltyMinutes || 0),
     registrationStartsAt: toDatetimeLocalValue(game?.registrationStartsAt),
     registrationEndsAt: toDatetimeLocalValue(game?.registrationEndsAt),
     startsAt: toDatetimeLocalValue(game?.startsAt),
@@ -75,7 +74,7 @@ export function OrganizerGameEditPage() {
     }
 
     if (Number(gameForm.routeSlotsCount) < 1) {
-      setGameError('Количество маршрутов должно быть не меньше 1')
+      setGameError('Количество команд должно быть не меньше 1')
       return
     }
 
@@ -92,7 +91,7 @@ export function OrganizerGameEditPage() {
           minTeamSize: Number(gameForm.minTeamSize),
           maxTeamSize: Number(gameForm.maxTeamSize),
           routeSlotsCount: Number(gameForm.routeSlotsCount),
-          taskFailurePenaltyMinutes: Number(gameForm.taskFailurePenaltyMinutes),
+          taskFailurePenaltyMinutes: 10,
           registrationStartsAt: gameForm.registrationStartsAt
             ? new Date(gameForm.registrationStartsAt).toISOString()
             : null,
@@ -194,26 +193,12 @@ export function OrganizerGameEditPage() {
             />
           </label>
           <label className="field">
-            <span>Количество маршрутов</span>
+            <span>Количество команд</span>
             <input
               name="routeSlotsCount"
               type="number"
               min="1"
               value={gameForm.routeSlotsCount}
-              onChange={handleGameFormChange}
-              disabled={!isGameEditable}
-            />
-          </label>
-        </div>
-
-        <div className="split-grid">
-          <label className="field">
-            <span>Штраф за провал, мин</span>
-            <input
-              name="taskFailurePenaltyMinutes"
-              type="number"
-              min="0"
-              value={gameForm.taskFailurePenaltyMinutes}
               onChange={handleGameFormChange}
               disabled={!isGameEditable}
             />

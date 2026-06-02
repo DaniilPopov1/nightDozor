@@ -28,7 +28,7 @@ export function OrganizerGamesPage() {
       {games.length === 0 && !isFetching ? (
         <section className="empty-state">
           <h2>Игр пока нет</h2>
-          <p>Создай первую игру, чтобы задать даты, количество маршрутов и начать приём заявок от команд.</p>
+          <p>Создай первую игру, чтобы задать даты, количество команд и начать приём заявок от команд.</p>
           <div className="cta-group">
             <Link className="button button--primary" to="/organizer/games/create">
               Создать первую игру

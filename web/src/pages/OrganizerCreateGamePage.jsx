@@ -9,7 +9,6 @@ const initialFormState = {
   minTeamSize: '2',
   maxTeamSize: '5',
   routeSlotsCount: '5',
-  taskFailurePenaltyMinutes: '10',
   registrationStartsAt: '',
   registrationEndsAt: '',
   startsAt: '',
@@ -49,7 +48,7 @@ export function OrganizerCreateGamePage() {
     }
 
     if (Number(formData.routeSlotsCount) < 1) {
-      setError('Количество маршрутов должно быть не меньше 1')
+      setError('Количество команд должно быть не меньше 1')
       return
     }
 
@@ -63,7 +62,7 @@ export function OrganizerCreateGamePage() {
         minTeamSize: Number(formData.minTeamSize),
         maxTeamSize: Number(formData.maxTeamSize),
         routeSlotsCount: Number(formData.routeSlotsCount),
-        taskFailurePenaltyMinutes: Number(formData.taskFailurePenaltyMinutes),
+        taskFailurePenaltyMinutes: 10,
         registrationStartsAt: toIsoOrNull(formData.registrationStartsAt),
         registrationEndsAt: toIsoOrNull(formData.registrationEndsAt),
         startsAt: new Date(formData.startsAt).toISOString(),
@@ -147,7 +146,7 @@ export function OrganizerCreateGamePage() {
           </label>
 
           <label className="field">
-            <span>Количество маршрутов</span>
+            <span>Количество команд</span>
             <input
               name="routeSlotsCount"
               type="number"
@@ -159,21 +158,8 @@ export function OrganizerCreateGamePage() {
         </div>
 
         <p className="section-block__hint">
-          Количество маршрутов определяет, сколько разных цепочек заданий ты подготовишь для этой игры.
+          Количество команд определяет, сколько разных цепочек заданий ты подготовишь для этой игры.
         </p>
-
-        <div className="split-grid">
-          <label className="field">
-            <span>Штраф за провал, мин</span>
-            <input
-              name="taskFailurePenaltyMinutes"
-              type="number"
-              min="0"
-              value={formData.taskFailurePenaltyMinutes}
-              onChange={handleChange}
-            />
-          </label>
-        </div>
 
         <div className="split-grid">
           <label className="field">

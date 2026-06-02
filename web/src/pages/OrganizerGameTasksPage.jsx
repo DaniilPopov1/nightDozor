@@ -12,7 +12,6 @@ const initialTaskForm = {
   title: '',
   riddleText: '',
   answerKey: '',
-  orderIndex: '1',
   timeLimitMinutes: '60',
   failurePenaltyMinutes: '10',
 }
@@ -56,6 +55,7 @@ export function OrganizerGameTasksPage() {
       timeLimitMinutes: String(task.timeLimitMinutes),
       failurePenaltyMinutes: String(task.failurePenaltyMinutes),
     })
+    // orderIndex сохраняется в форме, но не отображается — передаётся как есть при сохранении
   }
 
   const cancelTaskEditing = () => {
@@ -75,17 +75,14 @@ export function OrganizerGameTasksPage() {
           title: taskForm.title.trim(),
           riddleText: taskForm.riddleText.trim(),
           answerKey: taskForm.answerKey.trim(),
-          orderIndex: Number(taskForm.orderIndex),
+          orderIndex: tasks.length + 1,
           timeLimitMinutes: Number(taskForm.timeLimitMinutes),
           failurePenaltyMinutes: Number(taskForm.failurePenaltyMinutes),
         },
       }).unwrap()
 
       setTaskMessage('Задание создано')
-      setTaskForm({
-        ...initialTaskForm,
-        orderIndex: String(tasks.length + 2),
-      })
+      setTaskForm(initialTaskForm)
     } catch (requestError) {
       setTaskError(requestError?.message || 'Не удалось создать задание')
     }
@@ -175,11 +172,7 @@ export function OrganizerGameTasksPage() {
           />
         </label>
 
-        <div className="split-grid split-grid--triple">
-          <label className="field">
-            <span>Порядок</span>
-            <input name="orderIndex" type="number" min="1" value={taskForm.orderIndex} onChange={handleTaskFormChange} disabled={!canManageContent} />
-          </label>
+        <div className="split-grid">
           <label className="field">
             <span>Лимит времени, мин</span>
             <input name="timeLimitMinutes" type="number" min="1" value={taskForm.timeLimitMinutes} onChange={handleTaskFormChange} disabled={!canManageContent} />
@@ -226,11 +219,7 @@ export function OrganizerGameTasksPage() {
                     <span>Текст загадки</span>
                     <textarea className="field__textarea field__textarea--small" name="riddleText" rows="4" value={taskEditForm.riddleText} onChange={handleTaskEditFormChange} />
                   </label>
-                  <div className="split-grid split-grid--triple">
-                    <label className="field">
-                      <span>Порядок</span>
-                      <input name="orderIndex" type="number" min="1" value={taskEditForm.orderIndex} onChange={handleTaskEditFormChange} />
-                    </label>
+                  <div className="split-grid">
                     <label className="field">
                       <span>Лимит, мин</span>
                       <input name="timeLimitMinutes" type="number" min="1" value={taskEditForm.timeLimitMinutes} onChange={handleTaskEditFormChange} />
@@ -252,7 +241,6 @@ export function OrganizerGameTasksPage() {
               ) : (
                 <>
                   <h3>{task.title}</h3>
-                  <p>Порядок: {task.orderIndex}</p>
                   <p>Лимит времени: {task.timeLimitMinutes} мин</p>
                   <p>Штраф: {task.failurePenaltyMinutes} мин</p>
                   <p>Подсказок: {task.hints.length} из 2</p>

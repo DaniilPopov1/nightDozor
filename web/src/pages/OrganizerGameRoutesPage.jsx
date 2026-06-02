@@ -7,7 +7,6 @@ import {
   useGetOrganizerGameRoutesQuery,
   useGetOrganizerGameTasksQuery,
   useRemoveTaskFromRouteMutation,
-  useUpdateRouteMutation,
 } from '../features/game/gameApi.js'
 
 export function OrganizerGameRoutesPage() {
@@ -16,18 +15,14 @@ export function OrganizerGameRoutesPage() {
   const { data: tasks = [], isFetching: isFetchingTasks, error: tasksLoadError } = useGetOrganizerGameTasksQuery(gameId)
   const { data: routes = [], isFetching: isFetchingRoutes, error: routesLoadError } = useGetOrganizerGameRoutesQuery(gameId)
   const [createRoute, { isLoading: isCreatingRoute }] = useCreateRouteMutation()
-  const [updateRoute, { isLoading: isUpdatingRoute }] = useUpdateRouteMutation()
   const [deleteRoute, { isLoading: isDeletingRoute }] = useDeleteRouteMutation()
   const [addTaskToRoute, { isLoading: isAddingRouteItem }] = useAddTaskToRouteMutation()
   const [removeTaskFromRoute, { isLoading: isRemovingRouteItem }] = useRemoveTaskFromRouteMutation()
   const [routeForm, setRouteForm] = useState({
     slotNumber: '1',
-    name: '',
     taskId: '',
     orderIndex: '1',
   })
-  const [editingRouteId, setEditingRouteId] = useState(null)
-  const [routeEditName, setRouteEditName] = useState('')
   const [message, setMessage] = useState('')
   const [requestError, setRequestError] = useState('')
 
@@ -61,23 +56,13 @@ export function OrganizerGameRoutesPage() {
     setRouteForm((current) => ({ ...current, [name]: value }))
   }
 
-  const startRouteEditing = (route) => {
-    setEditingRouteId(route.id)
-    setRouteEditName(route.name)
-  }
-
-  const cancelRouteEditing = () => {
-    setEditingRouteId(null)
-    setRouteEditName('')
-  }
-
   const handleCreateRoute = async (event) => {
     event.preventDefault()
     setRequestError('')
     setMessage('')
 
-    if (!routeForm.slotNumber || !routeForm.name.trim()) {
-      setRequestError('Для маршрута выбери номер слота и укажи название')
+    if (!routeForm.slotNumber) {
+      setRequestError('Выбери номер слота для маршрута')
       return
     }
 
@@ -89,7 +74,6 @@ export function OrganizerGameRoutesPage() {
           gameId,
           payload: {
             slotNumber: Number(routeForm.slotNumber),
-            name: routeForm.name.trim(),
           },
         }).unwrap()
       }
@@ -113,23 +97,6 @@ export function OrganizerGameRoutesPage() {
       }))
     } catch (routeError) {
       setRequestError(routeError?.message || 'Не удалось сохранить маршрут')
-    }
-  }
-
-  const handleUpdateRoute = async (routeId) => {
-    setRequestError('')
-    setMessage('')
-
-    try {
-      await updateRoute({
-        gameId,
-        routeId,
-        payload: { name: routeEditName.trim() },
-      }).unwrap()
-      setMessage('Название маршрута обновлено')
-      cancelRouteEditing()
-    } catch (routeError) {
-      setRequestError(routeError?.message || 'Не удалось обновить маршрут')
     }
   }
 
@@ -187,7 +154,7 @@ export function OrganizerGameRoutesPage() {
       ) : null}
 
       <form className="auth-form" onSubmit={handleCreateRoute}>
-        <div className="split-grid split-grid--triple">
+        <div className="split-grid">
           <label className="field">
             <span>Слот маршрута</span>
             <select name="slotNumber" value={routeForm.slotNumber} onChange={handleRouteFormChange} disabled={!canManageContent}>
@@ -197,10 +164,6 @@ export function OrganizerGameRoutesPage() {
                 </option>
               ))}
             </select>
-          </label>
-          <label className="field">
-            <span>Название маршрута</span>
-            <input name="name" value={routeForm.name} onChange={handleRouteFormChange} disabled={!canManageContent} />
           </label>
           <label className="field">
             <span>Позиция задания</span>
@@ -229,8 +192,8 @@ export function OrganizerGameRoutesPage() {
 
       {slotNumbers.length === 0 ? (
         <section className="empty-state">
-          <h2>Количество маршрутов не задано</h2>
-          <p>Сначала укажи количество маршрутов в параметрах игры.</p>
+          <h2>Количество команд не задано</h2>
+          <p>Сначала укажи количество команд в параметрах игры.</p>
         </section>
       ) : null}
 
@@ -248,26 +211,11 @@ export function OrganizerGameRoutesPage() {
                 </div>
 
                 {route ? (
-                  editingRouteId === route.id ? (
-                    <div className="list-card__actions">
-                      <input value={routeEditName} onChange={(event) => setRouteEditName(event.target.value)} />
-                      <button className="button button--primary" type="button" onClick={() => handleUpdateRoute(route.id)} disabled={!canManageContent || isUpdatingRoute}>
-                        Сохранить
-                      </button>
-                      <button className="button button--secondary" type="button" onClick={cancelRouteEditing}>
-                        Отмена
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="list-card__actions">
-                      <button className="button button--secondary" type="button" onClick={() => startRouteEditing(route)} disabled={!canManageContent}>
-                        Переименовать
-                      </button>
-                      <button className="button button--secondary" type="button" onClick={() => handleDeleteRoute(route.id)} disabled={!canManageContent || isDeletingRoute || Boolean(route.assignedTeamId)}>
-                        Удалить
-                      </button>
-                    </div>
-                  )
+                  <div className="list-card__actions">
+                    <button className="button button--secondary" type="button" onClick={() => handleDeleteRoute(route.id)} disabled={!canManageContent || isDeletingRoute || Boolean(route.assignedTeamId)}>
+                      Удалить
+                    </button>
+                  </div>
                 ) : null}
               </div>
 
