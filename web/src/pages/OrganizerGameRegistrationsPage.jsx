@@ -26,9 +26,10 @@ export function OrganizerGameRegistrationsPage() {
   const [selectedTeamId, setSelectedTeamId] = useState('')
   const [chatText, setChatText] = useState('')
   const [chatError, setChatError] = useState('')
-  const [chatSocket, setChatSocket] = useState(null)
+  const chatSocketRef = useRef(null)
   const [chatFeed, setChatFeed] = useState([])
   const [isAwaitingChatAck, setIsAwaitingChatAck] = useState(false)
+  const [isSocketReady, setIsSocketReady] = useState(false)
   const chatWindowRef = useRef(null)
   const chatInputRef = useRef(null)
 
@@ -62,7 +63,7 @@ export function OrganizerGameRegistrationsPage() {
     error: captainOrganizerChatError,
   } = useGetCaptainOrganizerChatMessagesForOrganizerQuery(
     { gameId, teamId: effectiveSelectedTeamId },
-    { skip: !effectiveSelectedTeamId },
+    { skip: !effectiveSelectedTeamId, refetchOnMountOrArgChange: true },
   )
 
   useEffect(() => {
@@ -91,8 +92,18 @@ export function OrganizerGameRegistrationsPage() {
       return undefined
     }
 
+    // Закрываем предыдущий сокет синхронно перед созданием нового
+    if (chatSocketRef.current) {
+      chatSocketRef.current.onclose = null
+      chatSocketRef.current.close()
+      chatSocketRef.current = null
+    }
+
+    setIsSocketReady(false)
+    setIsAwaitingChatAck(false)
+
     const socket = new WebSocket(buildChatSocketUrl(token))
-    setChatSocket(socket)
+    chatSocketRef.current = socket
 
     socket.onopen = () => {
       socket.send(
@@ -103,6 +114,7 @@ export function OrganizerGameRegistrationsPage() {
           channel: 'CAPTAIN_ORGANIZER',
         }),
       )
+      setIsSocketReady(true)
     }
 
     socket.onmessage = (rawEvent) => {
@@ -141,13 +153,15 @@ export function OrganizerGameRegistrationsPage() {
     socket.onerror = () => {
       setChatError('Ошибка соединения чата. Попробуй обновить страницу.')
       setIsAwaitingChatAck(false)
+      setIsSocketReady(false)
     }
 
     socket.onclose = () => {
-      setChatSocket(null)
+      setIsSocketReady(false)
     }
 
     return () => {
+      socket.onclose = null
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(
           JSON.stringify({
@@ -159,6 +173,7 @@ export function OrganizerGameRegistrationsPage() {
         )
       }
       socket.close()
+      chatSocketRef.current = null
     }
   }, [currentUser?.email, effectiveSelectedTeamId, gameId, token])
 
@@ -188,11 +203,11 @@ export function OrganizerGameRegistrationsPage() {
     setIsSendingMessage(true)
 
     try {
-      if (!chatSocket || chatSocket.readyState !== WebSocket.OPEN) {
+      if (!chatSocketRef.current || chatSocketRef.current.readyState !== WebSocket.OPEN) {
         throw new Error('Чат не подключен. Обнови страницу.')
       }
 
-      chatSocket.send(
+      chatSocketRef.current.send(
         JSON.stringify({
           type: 'SEND',
           gameId: Number(gameId),
@@ -293,7 +308,7 @@ export function OrganizerGameRegistrationsPage() {
           <div className="stack">
             <label className="field">
               <span>Команда</span>
-              <select value={effectiveSelectedTeamId} onChange={(event) => setSelectedTeamId(event.target.value)}>
+              <select value={effectiveSelectedTeamId} onChange={(event) => { setChatError(''); setChatFeed([]); setSelectedTeamId(event.target.value) }}>
                 {approvedTeams.map((team) => (
                   <option key={team.teamId} value={team.teamId}>
                     {team.teamName}
@@ -348,7 +363,8 @@ export function OrganizerGameRegistrationsPage() {
                   isSendingMessage ||
                   isAwaitingChatAck ||
                   !chatText.trim() ||
-                  !effectiveSelectedTeamId
+                  !effectiveSelectedTeamId ||
+                  !isSocketReady
                 }
               >
                 {isSendingMessage || isAwaitingChatAck ? 'Отправляем...' : 'Отправить'}

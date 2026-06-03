@@ -28,7 +28,7 @@ public class EmailService {
      * @param token токен подтверждения
      */
     public void sendVerificationEmail(String to, String token) {
-        String verificationLink = frontendBaseUrl + "/verify-email?token=" + token;
+        String verificationLink = frontendBaseUrl + "/verify?token=" + token;
 
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(from);

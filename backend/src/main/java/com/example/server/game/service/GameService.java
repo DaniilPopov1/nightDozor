@@ -580,7 +580,7 @@ public class GameService {
         return buildTeamGameRouteResponse(route);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает список игр текущего организатора.
      *
@@ -596,7 +596,7 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает публичный список игр с опциональной фильтрацией по городу.
      *
@@ -616,7 +616,7 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает подробную информацию об игре текущего организатора.
      *
@@ -628,7 +628,7 @@ public class GameService {
         return buildGameResponse(synchronizeGameLifecycle(getOrganizerGame(organizerEmail, gameId), Instant.now()));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает список заданий игры текущего организатора.
      *
@@ -644,7 +644,7 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает список маршрутов команд для игры текущего организатора.
      *
@@ -660,7 +660,7 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает входящие заявки команд для указанной игры организатора.
      *
@@ -680,7 +680,7 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает итоговый зачёт завершённой игры для организатора.
      *
@@ -752,7 +752,7 @@ public class GameService {
         return standings;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     /**
      * Возвращает все заявки текущей команды на игры.
      *
@@ -768,7 +768,7 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<GameChatMessageResponse> getTeamChatMessages(String userEmail, Long gameId) {
         User user = getUserByEmail(userEmail);
         TeamMembership membership = getActiveMembership(user);
@@ -783,7 +783,7 @@ public class GameService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public void validateChatAccess(String userEmail, Long gameId, Long teamId, GameChatChannel channel) {
         resolveChatContext(userEmail, gameId, teamId, channel);
     }
@@ -835,7 +835,7 @@ public class GameService {
         return buildGameChatMessageResponse(gameChatMessageRepository.save(message));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<GameChatMessageResponse> getCaptainOrganizerChatMessagesForCaptain(String captainEmail, Long gameId) {
         Team team = getCaptainTeam(captainEmail);
         Game game = getApprovedRegistration(gameId, team.getId()).getGame();
@@ -869,7 +869,7 @@ public class GameService {
         return buildGameChatMessageResponse(gameChatMessageRepository.save(message));
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<GameChatMessageResponse> getCaptainOrganizerChatMessagesForOrganizer(
             String organizerEmail,
             Long gameId,

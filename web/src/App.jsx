@@ -22,6 +22,7 @@ import { OrganizerGamesPage } from './pages/OrganizerGamesPage.jsx'
 import { ProfilePage } from './pages/ProfilePage.jsx'
 import { RegisterPage } from './pages/RegisterPage.jsx'
 import { TeamPage } from './pages/TeamPage.jsx'
+import { VerifyEmailPage } from './pages/VerifyEmailPage.jsx'
 
 function RootRedirect() {
   const token = useSelector((state) => state.auth.token)
@@ -45,6 +46,7 @@ function App() {
         <Route path="/" element={<RootRedirect />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+        <Route path="/verify" element={<VerifyEmailPage />} />
 
         <Route
           path="/profile"

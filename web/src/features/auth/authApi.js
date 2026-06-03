@@ -20,6 +20,12 @@ export const authApi = apiSlice.injectEndpoints({
       query: () => '/auth/me',
       providesTags: ['CurrentUser'],
     }),
+    verifyEmail: builder.mutation({
+      query: (token) => ({
+        url: `/auth/verify?token=${token}`,
+        method: 'GET',
+      }),
+    }),
   }),
 })
 
@@ -28,4 +34,5 @@ export const {
   useLazyGetCurrentUserQuery,
   useLoginMutation,
   useRegisterMutation,
+  useVerifyEmailMutation,
 } = authApi
