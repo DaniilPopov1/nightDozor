@@ -208,18 +208,17 @@ export const gameApi = apiSlice.injectEndpoints({
       }),
       invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerTasks', id: gameId }],
     }),
+    generateRoutes: builder.mutation({
+      query: ({ gameId }) => ({
+        url: `/games/my/${gameId}/routes/generate`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
+    }),
     createRoute: builder.mutation({
       query: ({ gameId, payload }) => ({
         url: `/games/my/${gameId}/routes`,
         method: 'POST',
-        body: payload,
-      }),
-      invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
-    }),
-    updateRoute: builder.mutation({
-      query: ({ gameId, routeId, payload }) => ({
-        url: `/games/my/${gameId}/routes/${routeId}`,
-        method: 'PUT',
         body: payload,
       }),
       invalidatesTags: (result, error, { gameId }) => [{ type: 'OrganizerRoutes', id: gameId }],
@@ -255,6 +254,7 @@ export const {
   useCancelGameRegistrationMutation,
   useCreateGameMutation,
   useCreateRouteMutation,
+  useGenerateRoutesMutation,
   useCreateTaskHintMutation,
   useCreateTaskMutation,
   useDeleteTaskHintMutation,
@@ -280,7 +280,6 @@ export const {
   useSendTeamChatMessageMutation,
   useSubmitGameRegistrationMutation,
   useUpdateGameMutation,
-  useUpdateRouteMutation,
   useUpdateTaskHintMutation,
   useUpdateTaskMutation,
   useCancelOrganizerGameMutation,

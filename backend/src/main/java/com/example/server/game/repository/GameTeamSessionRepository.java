@@ -52,4 +52,13 @@ public interface GameTeamSessionRepository extends JpaRepository<GameTeamSession
      * @return последняя сессия команды
      */
     Optional<GameTeamSession> findTopByTeamIdOrderByStartedAtDesc(Long teamId);
+
+    /**
+     * Возвращает все активные сессии игры в указанном статусе.
+     *
+     * @param gameId идентификатор игры
+     * @param status статус сессии
+     * @return список сессий
+     */
+    List<GameTeamSession> findAllByGameIdAndStatus(Long gameId, GameTeamSessionStatus status);
 }

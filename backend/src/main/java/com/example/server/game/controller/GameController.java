@@ -298,6 +298,17 @@ public class GameController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/my/{gameId}/routes/generate")
+    /**
+     * Автоматически генерирует маршруты с циклическим сдвигом.
+     */
+    public ResponseEntity<List<TeamGameRouteResponse>> generateRoutes(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable Long gameId
+    ) {
+        return ResponseEntity.ok(gameService.generateRoutes(userDetails.getUsername(), gameId));
+    }
+
     @PostMapping("/my/{gameId}/routes")
     /**
      * Создает маршрут прохождения заданий для конкретной команды.

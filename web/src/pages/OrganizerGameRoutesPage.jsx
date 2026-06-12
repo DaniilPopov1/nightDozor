@@ -1,12 +1,10 @@
 import { useMemo, useState } from 'react'
 import { useOutletContext, useParams } from 'react-router-dom'
 import {
-  useAddTaskToRouteMutation,
-  useCreateRouteMutation,
   useDeleteRouteMutation,
+  useGenerateRoutesMutation,
   useGetOrganizerGameRoutesQuery,
   useGetOrganizerGameTasksQuery,
-  useRemoveTaskFromRouteMutation,
 } from '../features/game/gameApi.js'
 
 export function OrganizerGameRoutesPage() {
@@ -14,15 +12,8 @@ export function OrganizerGameRoutesPage() {
   const { game, canManageContent } = useOutletContext()
   const { data: tasks = [], isFetching: isFetchingTasks, error: tasksLoadError } = useGetOrganizerGameTasksQuery(gameId)
   const { data: routes = [], isFetching: isFetchingRoutes, error: routesLoadError } = useGetOrganizerGameRoutesQuery(gameId)
-  const [createRoute, { isLoading: isCreatingRoute }] = useCreateRouteMutation()
+  const [generateRoutes, { isLoading: isGeneratingRoutes }] = useGenerateRoutesMutation()
   const [deleteRoute, { isLoading: isDeletingRoute }] = useDeleteRouteMutation()
-  const [addTaskToRoute, { isLoading: isAddingRouteItem }] = useAddTaskToRouteMutation()
-  const [removeTaskFromRoute, { isLoading: isRemovingRouteItem }] = useRemoveTaskFromRouteMutation()
-  const [routeForm, setRouteForm] = useState({
-    slotNumber: '1',
-    taskId: '',
-    orderIndex: '1',
-  })
   const [message, setMessage] = useState('')
   const [requestError, setRequestError] = useState('')
 
@@ -34,96 +25,33 @@ export function OrganizerGameRoutesPage() {
     () => new Map(routes.map((route) => [String(route.slotNumber), route])),
     [routes],
   )
-  const assignedTaskIds = useMemo(
-    () => new Set(routes.flatMap((route) => route.items.map((item) => String(item.taskId)))),
-    [routes],
-  )
-  const availableRouteTasks = useMemo(
-    () => tasks.filter((task) => !assignedTaskIds.has(String(task.id))),
-    [assignedTaskIds, tasks],
-  )
   const routeTaskCounts = useMemo(() => routes.map((route) => route.items.length), [routes])
   const areRouteLengthsConsistent = useMemo(() => {
     if (routeTaskCounts.length !== game?.routeSlotsCount || routeTaskCounts.length === 0) {
       return false
     }
-
     return routeTaskCounts.every((count) => count === routeTaskCounts[0] && count > 0)
   }, [game?.routeSlotsCount, routeTaskCounts])
 
-  const handleRouteFormChange = (event) => {
-    const { name, value } = event.target
-    setRouteForm((current) => ({ ...current, [name]: value }))
-  }
-
-  const handleCreateRoute = async (event) => {
-    event.preventDefault()
+  const handleGenerateRoutes = async () => {
     setRequestError('')
     setMessage('')
-
-    if (!routeForm.slotNumber) {
-      setRequestError('Выбери номер слота для маршрута')
-      return
-    }
-
     try {
-      let route = routesBySlot.get(String(routeForm.slotNumber))
-
-      if (!route) {
-        route = await createRoute({
-          gameId,
-          payload: {
-            slotNumber: Number(routeForm.slotNumber),
-          },
-        }).unwrap()
-      }
-
-      if (routeForm.taskId) {
-        await addTaskToRoute({
-          gameId,
-          routeId: route.id,
-          payload: {
-            taskId: Number(routeForm.taskId),
-            orderIndex: Number(routeForm.orderIndex),
-          },
-        }).unwrap()
-      }
-
-      setMessage('Маршрут сохранён')
-      setRouteForm((current) => ({
-        ...current,
-        taskId: '',
-        orderIndex: String(Number(current.orderIndex) + 1),
-      }))
-    } catch (routeError) {
-      setRequestError(routeError?.message || 'Не удалось сохранить маршрут')
+      await generateRoutes({ gameId }).unwrap()
+      setMessage('Маршруты сгенерированы автоматически с циклическим сдвигом')
+    } catch (generateError) {
+      setRequestError(generateError?.message || 'Не удалось сгенерировать маршруты')
     }
   }
 
   const handleDeleteRoute = async (routeId) => {
     setRequestError('')
     setMessage('')
-
     try {
       await deleteRoute({ gameId, routeId }).unwrap()
       setMessage('Маршрут удалён')
-      if (editingRouteId === routeId) {
-        cancelRouteEditing()
-      }
     } catch (routeError) {
       setRequestError(routeError?.message || 'Не удалось удалить маршрут')
-    }
-  }
-
-  const handleRemoveTaskFromRoute = async (routeId, itemId) => {
-    setRequestError('')
-    setMessage('')
-
-    try {
-      await removeTaskFromRoute({ gameId, routeId, itemId }).unwrap()
-      setMessage('Задание убрано из маршрута')
-    } catch (routeError) {
-      setRequestError(routeError?.message || 'Не удалось убрать задание из маршрута')
     }
   }
 
@@ -131,11 +59,21 @@ export function OrganizerGameRoutesPage() {
     <section className="section-block">
       <div className="section-block__header">
         <div>
-          <h2>Экран настройки маршрутов команд</h2>
+          <h2>Маршруты команд</h2>
           <p className="section-block__text">
-            Здесь ты собираешь маршруты по слотам. Одна и та же загадка не может повторяться в разных маршрутах одной игры.
+            Все команды получат одинаковый набор заданий, но в разном порядке (циклический сдвиг).
+            Это гарантирует честность и минимизирует пересечения команд на точках.
+            Количество заданий должно быть не меньше количества команд.
           </p>
         </div>
+        <button
+          className="button button--primary"
+          type="button"
+          onClick={handleGenerateRoutes}
+          disabled={!canManageContent || isGeneratingRoutes || tasks.length === 0}
+        >
+          {isGeneratingRoutes ? 'Генерируем...' : 'Сгенерировать маршруты'}
+        </button>
       </div>
 
       {tasksLoadError?.message ? <p className="form-message form-message--error">{tasksLoadError.message}</p> : null}
@@ -149,44 +87,9 @@ export function OrganizerGameRoutesPage() {
       ) : null}
       {!areRouteLengthsConsistent && routes.length > 0 ? (
         <p className="form-message form-message--error">
-          Во всех маршрутах одной игры должно быть одинаковое количество заданий.
+          Маршруты не согласованы — нажми «Сгенерировать маршруты» чтобы пересоздать их.
         </p>
       ) : null}
-
-      <form className="auth-form" onSubmit={handleCreateRoute}>
-        <div className="split-grid">
-          <label className="field">
-            <span>Слот маршрута</span>
-            <select name="slotNumber" value={routeForm.slotNumber} onChange={handleRouteFormChange} disabled={!canManageContent}>
-              {slotNumbers.map((slotNumber) => (
-                <option key={slotNumber} value={slotNumber}>
-                  Маршрут {slotNumber}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Позиция задания</span>
-            <input name="orderIndex" type="number" min="1" value={routeForm.orderIndex} onChange={handleRouteFormChange} disabled={!canManageContent} />
-          </label>
-        </div>
-
-        <label className="field">
-          <span>Добавить задание</span>
-          <select name="taskId" value={routeForm.taskId} onChange={handleRouteFormChange} disabled={!canManageContent || availableRouteTasks.length === 0}>
-            <option value="">Пока без задания</option>
-            {availableRouteTasks.map((task) => (
-              <option key={task.id} value={task.id}>
-                {task.title}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <button className="button button--primary" type="submit" disabled={!canManageContent || isCreatingRoute || isAddingRouteItem}>
-          {isCreatingRoute || isAddingRouteItem ? 'Сохраняем...' : 'Сохранить маршрут'}
-        </button>
-      </form>
 
       {isFetchingTasks || isFetchingRoutes ? <p className="page-note">Загрузка маршрутов...</p> : null}
 
@@ -194,6 +97,13 @@ export function OrganizerGameRoutesPage() {
         <section className="empty-state">
           <h2>Количество команд не задано</h2>
           <p>Сначала укажи количество команд в параметрах игры.</p>
+        </section>
+      ) : null}
+
+      {tasks.length === 0 && slotNumbers.length > 0 && !isFetchingTasks ? (
+        <section className="empty-state">
+          <h2>Нет заданий</h2>
+          <p>Сначала создай задания на вкладке «Задания», затем вернись сюда и нажми «Сгенерировать маршруты».</p>
         </section>
       ) : null}
 
@@ -206,13 +116,18 @@ export function OrganizerGameRoutesPage() {
               <div className="route-editor__header">
                 <div className="route-editor__meta">
                   <h3>Маршрут {slotNumber}</h3>
-                  <p>{route ? `Заданий: ${route.items.length}` : 'Маршрут ещё не создан'}</p>
+                  <p>{route ? `Заданий: ${route.items.length}` : 'Маршрут ещё не сгенерирован'}</p>
                   {route?.assignedTeamName ? <p>Назначен команде: {route.assignedTeamName}</p> : null}
                 </div>
 
                 {route ? (
                   <div className="list-card__actions">
-                    <button className="button button--secondary" type="button" onClick={() => handleDeleteRoute(route.id)} disabled={!canManageContent || isDeletingRoute || Boolean(route.assignedTeamId)}>
+                    <button
+                      className="button button--secondary"
+                      type="button"
+                      onClick={() => handleDeleteRoute(route.id)}
+                      disabled={!canManageContent || isDeletingRoute || Boolean(route.assignedTeamId)}
+                    >
                       Удалить
                     </button>
                   </div>
@@ -224,23 +139,18 @@ export function OrganizerGameRoutesPage() {
                   <div className="route-editor__items">
                     {route.items.map((item) => (
                       <div key={item.id} className="route-editor__item">
-                        <div>
-                          <strong>{item.orderIndex}. {item.taskTitle}</strong>
-                        </div>
-                        <button className="button button--secondary" type="button" onClick={() => handleRemoveTaskFromRoute(route.id, item.id)} disabled={!canManageContent || isRemovingRouteItem}>
-                          Убрать
-                        </button>
+                        <strong>{item.orderIndex}. {item.taskTitle}</strong>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="route-editor__empty">
-                    <p>В этот маршрут пока не добавлены задания.</p>
+                    <p>В этом маршруте нет заданий.</p>
                   </div>
                 )
               ) : (
                 <div className="route-editor__empty">
-                  <p>Для этого слота маршрут ещё не создан.</p>
+                  <p>Нажми «Сгенерировать маршруты» чтобы создать маршруты для всех команд.</p>
                 </div>
               )}
             </article>

@@ -482,6 +482,57 @@ public class GameService {
 
     @Transactional
     /**
+     * Автоматически генерирует маршруты с циклическим сдвигом.
+     * Все команды проходят одинаковый набор заданий, но в разном порядке,
+     * чтобы не пересекаться на точках.
+     *
+     * @param organizerEmail email организатора
+     * @param gameId идентификатор игры
+     * @return список сгенерированных маршрутов
+     */
+    public List<TeamGameRouteResponse> generateRoutes(String organizerEmail, Long gameId) {
+        Game game = getOrganizerGame(organizerEmail, gameId);
+        validateGameEditable(game);
+
+        List<GameTask> tasks = gameTaskRepository.findAllByGameIdOrderByOrderIndexAsc(gameId);
+        if (tasks.isEmpty()) {
+            throw new BadRequestException("Нет заданий для генерации маршрутов. Сначала создайте задания.");
+        }
+
+        int K = tasks.size();
+        int N = game.getRouteSlotsCount();
+
+        // Удаляем существующие маршруты
+        List<TeamGameRoute> existingRoutes = teamGameRouteRepository.findAllByGameIdOrderBySlotNumberAsc(gameId);
+        teamGameRouteRepository.deleteAll(existingRoutes);
+
+        // Генерируем N маршрутов с циклическим сдвигом
+        List<TeamGameRoute> generatedRoutes = new ArrayList<>();
+        for (int i = 0; i < N; i++) {
+            TeamGameRoute route = new TeamGameRoute();
+            route.setGame(game);
+            route.setSlotNumber(i + 1);
+            TeamGameRoute savedRoute = teamGameRouteRepository.save(route);
+
+            for (int p = 0; p < K; p++) {
+                int taskIndex = (i + p) % K;
+                TeamGameRouteItem item = new TeamGameRouteItem();
+                item.setRoute(savedRoute);
+                item.setTask(tasks.get(taskIndex));
+                item.setOrderIndex(p + 1);
+                teamGameRouteItemRepository.save(item);
+            }
+
+            generatedRoutes.add(savedRoute);
+        }
+
+        return generatedRoutes.stream()
+                .map(this::buildTeamGameRouteResponse)
+                .toList();
+    }
+
+    @Transactional
+    /**
      * Создает маршрут заданий для конкретной команды в рамках игры.
      *
      * @param organizerEmail email организатора
@@ -988,12 +1039,8 @@ public class GameService {
         Instant submittedAt = Instant.now();
         GameTask completedTask = session.getCurrentTask();
         Integer completedOrderIndex = session.getCurrentOrderIndex();
-        List<TeamGameRouteItem> routeItems = teamGameRouteItemRepository.findAllByRouteIdOrderByOrderIndexAsc(session.getRoute().getId());
 
-        TeamGameRouteItem nextRouteItem = routeItems.stream()
-                .filter(item -> item.getOrderIndex() > completedOrderIndex)
-                .findFirst()
-                .orElse(null);
+        TeamGameRouteItem nextRouteItem = selectNextRouteItem(session);
 
         if (nextRouteItem == null) {
             session.setStatus(GameTeamSessionStatus.FINISHED);
@@ -1244,6 +1291,43 @@ public class GameService {
         }
 
         return availableHints;
+    }
+
+    /**
+     * Динамически выбирает следующее задание для команды по алгоритму:
+     * 1. Следующий по плановому порядку элемент маршрута, если точка свободна
+     * 2. Любой свободный из оставшихся
+     * 3. Следующий по порядку независимо от занятости (если все заняты)
+     *
+     * @param session текущая сессия команды
+     * @return следующий элемент маршрута или null если маршрут завершён
+     */
+    private TeamGameRouteItem selectNextRouteItem(GameTeamSession session) {
+        List<TeamGameRouteItem> remainingItems = teamGameRouteItemRepository
+                .findAllByRouteIdOrderByOrderIndexAsc(session.getRoute().getId())
+                .stream()
+                .filter(item -> item.getOrderIndex() > session.getCurrentOrderIndex())
+                .toList();
+
+        if (remainingItems.isEmpty()) {
+            return null;
+        }
+
+        // Получаем занятые задания — текущие задания других активных сессий этой игры
+        Set<Long> occupiedTaskIds = gameTeamSessionRepository
+                .findAllByGameIdAndStatus(session.getGame().getId(), GameTeamSessionStatus.IN_PROGRESS)
+                .stream()
+                .filter(s -> !s.getId().equals(session.getId()))
+                .map(s -> s.getCurrentTask().getId())
+                .collect(java.util.stream.Collectors.toSet());
+
+        // 1. Следующий по порядку и свободный
+        // 2. Любой свободный из оставшихся
+        // 3. Следующий по порядку независимо от занятости
+        return remainingItems.stream()
+                .filter(item -> !occupiedTaskIds.contains(item.getTask().getId()))
+                .findFirst()
+                .orElse(remainingItems.get(0));
     }
 
     private void synchronizeSessionWithTimeout(GameTeamSession session, Instant referenceNow) {

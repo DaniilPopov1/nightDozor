@@ -44,13 +44,6 @@ export function OrganizerGameLayout() {
     return <Navigate to="/organizer/games" replace />
   }
 
-  if (game?.status === 'IN_PROGRESS' && location.pathname !== resultsPath) {
-    return <Navigate to={resultsPath} replace />
-  }
-
-  if (game?.status === 'FINISHED' && location.pathname !== resultsPath) {
-    return <Navigate to={resultsPath} replace />
-  }
 
   return (
     <section className="page-card">
@@ -110,14 +103,24 @@ export function OrganizerGameLayout() {
 
             <nav className="subnav" aria-label="Навигация по игре">
               {game.status === 'IN_PROGRESS' ? (
-                <NavLink
-                  to={resultsPath}
-                  className={({ isActive }) =>
-                    isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
-                  }
-                >
-                  Рейтинг
-                </NavLink>
+                <>
+                  <NavLink
+                    to={resultsPath}
+                    className={({ isActive }) =>
+                      isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                    }
+                  >
+                    Рейтинг
+                  </NavLink>
+                  <NavLink
+                    to={`/organizer/games/${gameId}/registrations`}
+                    className={({ isActive }) =>
+                      isActive ? 'subnav__link subnav__link--active' : 'subnav__link'
+                    }
+                  >
+                    Чаты
+                  </NavLink>
+                </>
               ) : game.status === 'FINISHED' ? (
                 <NavLink
                   to={resultsPath}
